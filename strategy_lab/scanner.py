@@ -7,6 +7,7 @@ import time
 
 import pandas as pd
 
+from notifications.discord import DiscordNotifier
 from strategy_lab import indicators as ind
 from strategy_lab import models
 
@@ -35,6 +36,18 @@ class Scanner:
         self._thread: threading.Thread | None = None
         self._stop_event = threading.Event()
         self._last_hit: dict[str, float] = {}  # "strategy_id:instrument" -> timestamp
+        self._discord = DiscordNotifier()
+
+        # Lazy-init Alpaca trader (may not be configured)
+        self._trader: object | None = None
+        try:
+            from execution.alpaca_trader import AlpacaPaperTrader
+            trader = AlpacaPaperTrader()
+            if trader.enabled:
+                self._trader = trader
+                logger.info("Alpaca auto-trade enabled")
+        except Exception:
+            pass
 
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
@@ -141,6 +154,63 @@ class Scanner:
                     strat["name"], inst, direction, entry_price,
                     stop_loss or 0, take_profit or 0,
                 )
+
+                # Discord notification (non-blocking daemon thread)
+                if self._discord.enabled:
+                    confidence = len(conditions_met) / max(len(entry_rules), 1)
+                    threading.Thread(
+                        target=self._discord.send_signal,
+                        args=(
+                            strat["name"], inst, direction, entry_price,
+                            stop_loss, take_profit, confidence, conditions_met,
+                        ),
+                        daemon=True,
+                        name="discord-notify",
+                    ).start()
+
+                # Auto-execute on Alpaca paper (non-blocking)
+                if self._trader and self._trader.enabled:
+                    threading.Thread(
+                        target=self._auto_execute,
+                        args=(inst, direction, entry_price, stop_loss, take_profit, strat["name"]),
+                        daemon=True,
+                        name="alpaca-execute",
+                    ).start()
+
+    def _auto_execute(
+        self,
+        instrument: str,
+        direction: str,
+        entry_price: float,
+        stop_loss: float | None,
+        take_profit: float | None,
+        strategy_name: str,
+    ) -> None:
+        """Execute trade on Alpaca paper account (runs in daemon thread)."""
+        try:
+            result = self._trader.execute_signal(  # type: ignore[union-attr]
+                instrument=instrument,
+                direction=direction,
+                entry_price=entry_price,
+                stop_loss=stop_loss,
+                take_profit=take_profit,
+                strategy_name=strategy_name,
+            )
+            if result["success"]:
+                logger.info(
+                    "Auto-trade executed: %s %s %d shares, order=%s",
+                    direction, instrument, result["qty"], result["order_id"],
+                )
+                # Send execution notification to Discord
+                if self._discord.enabled:
+                    self._discord.send_execution(
+                        instrument, direction, result["qty"],
+                        result["order_id"], strategy_name,
+                    )
+            else:
+                logger.warning("Auto-trade skipped: %s — %s", instrument, result.get("error"))
+        except Exception:
+            logger.exception("Auto-trade error for %s", instrument)
 
     def _resolve_direction(
         self, rules: list[dict], indicators: dict, df: pd.DataFrame

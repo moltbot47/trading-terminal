@@ -35,6 +35,12 @@ YF_MAP: dict[str, str] = {
 # Instruments to track (futures only for live scanner)
 INSTRUMENTS: list[str] = ["MNQ", "MYM", "MES", "MBT"]
 
+# Stock tickers for price tracking (not scanned, just displayed)
+STOCK_INSTRUMENTS: list[str] = ["QQQ", "TQQQ", "SPY", "SPXL", "NVDA", "TSLA", "AMD"]
+
+# All instruments for price feed
+ALL_INSTRUMENTS: list[str] = INSTRUMENTS + STOCK_INSTRUMENTS
+
 # Cache TTLs (seconds)
 SNAPSHOT_CACHE_TTL: float = 4.0
 BARS_CACHE_TTL: float = 300.0
@@ -43,6 +49,12 @@ REGIME_CACHE_TTL: float = 60.0
 # Rate limiting
 RATE_LIMIT_WINDOW: int = 60  # seconds
 RATE_LIMIT_MAX_REQUESTS: int = 120  # per window per IP
+
+# Discord notifications
+DISCORD_WEBHOOK_URL: str = os.environ.get("DISCORD_WEBHOOK_URL", "")
+
+# Alpaca paper trading auto-execution
+ALPACA_AUTO_TRADE: bool = bool(os.environ.get("ALPACA_AUTO_TRADE", ""))
 
 # News filter config
 NEWS_FILTER_CONFIG: dict = {

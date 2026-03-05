@@ -6,15 +6,23 @@ const pnlColor = v => v > 0 ? 'c-green' : v < 0 ? 'c-red' : 'c-muted';
 const fmt = v => v != null ? (v > 0 ? '+' : '') + v.toFixed(2) : '--';
 const fmtK = v => Math.abs(v) >= 1000 ? (v / 1000).toFixed(1) + 'K' : v.toFixed(0);
 
-// Top-level view switching (Terminal / Strategy Lab)
+// Top-level view switching (Terminal / Strategy Lab / Backtester / Performance)
 function switchMainView(view, el) {
   document.querySelectorAll('.main-view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.top-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('view-' + view).classList.add('active');
   el.classList.add('active');
-  // Trigger lab data load when switching to lab
+  // Trigger data load when switching tabs
   if (view === 'lab' && typeof refreshLab === 'function') refreshLab();
   if (view === 'backtester' && typeof refreshBacktester === 'function') refreshBacktester();
+  if (view === 'performance' && typeof refreshPerformance === 'function') refreshPerformance();
+  // Close mobile menu
+  document.querySelector('.top-tabs').classList.remove('open');
+}
+
+// Mobile hamburger menu toggle
+function toggleMobileMenu() {
+  document.querySelector('.top-tabs').classList.toggle('open');
 }
 
 function adxBar(val) {
@@ -403,8 +411,14 @@ async function loadPrices() {
     var data = await r.json();
     lastPriceData = data;
 
-    var order = ['MNQ', 'MYM', 'MES', 'MBT'];
-    var labels = { MNQ: 'Micro Nasdaq', MYM: 'Micro Dow', MES: 'Micro S&P', MBT: 'Micro Bitcoin' };
+    var futures = ['MNQ', 'MYM', 'MES', 'MBT'];
+    var stocks = ['QQQ', 'TQQQ', 'SPY', 'SPXL', 'NVDA', 'TSLA', 'AMD'];
+    var order = futures.concat(stocks);
+    var labels = {
+      MNQ: 'Micro Nasdaq', MYM: 'Micro Dow', MES: 'Micro S&P', MBT: 'Micro BTC',
+      QQQ: 'Nasdaq 100', TQQQ: '3x Nasdaq', SPY: 'S&P 500', SPXL: '3x S&P',
+      NVDA: 'Nvidia', TSLA: 'Tesla', AMD: 'AMD'
+    };
     var html = '';
     // BUG-002 fix: compute changes from saved prev prices BEFORE overwriting
     var changes = {};
@@ -423,30 +437,34 @@ async function loadPrices() {
       prevPrices[sym] = d.price;
     }
 
-    // Build ticker strip
-    for (var j = 0; j < order.length; j++) {
-      var sym2 = order[j];
-      var d2 = data[sym2];
-      if (!d2 || isNaN(d2.price)) {
-        html += '<div class="ticker"><span class="ticker-sym">' + sym2 + '</span><br><span class="c-muted">--</span></div>';
-        continue;
+    // Build ticker strip — futures then divider then stocks
+    function buildTickerHTML(symList) {
+      var out = '';
+      for (var j = 0; j < symList.length; j++) {
+        var s = symList[j];
+        var dd = data[s];
+        if (!dd || isNaN(dd.price)) {
+          out += '<div class="ticker"><span class="ticker-sym">' + s + '</span><br><span class="c-muted">--</span></div>';
+          continue;
+        }
+        var ch = changes[s];
+        var priceAge = dd.timestamp ? (Date.now() / 1000 - dd.timestamp) : 0;
+        var staleTag = priceAge > 120 ? ' <span class="c-yellow" style="font-size:var(--text-xs)">[STALE]</span>' : '';
+        out += '<div class="ticker">' +
+          '<span class="ticker-sym">' + s + '</span> <span class="c-muted" style="font-size:var(--text-xs)">' + (labels[s] || '') + '</span>' + staleTag + '<br>' +
+          '<span class="ticker-price ' + ch.cls + '">' + dd.price.toLocaleString('en-US', { minimumFractionDigits: 2 }) + '</span>' +
+          ' <span class="' + ch.cls + '" style="font-size:var(--text-xs)">' + ch.arrow + ' ' + (ch.chg >= 0 ? '+' : '') + ch.chg.toFixed(2) + '</span><br>' +
+          '<span class="ticker-hl">H:' + dd.high.toFixed(2) + ' L:' + dd.low.toFixed(2) + '</span>' +
+          '<span id="regime-badge-' + s + '" class="ticker-regime"></span></div>';
       }
-      var c = changes[sym2];
-      // Stale detection: if price timestamp is older than 120s, show warning
-      var priceAge = d2.timestamp ? (Date.now() / 1000 - d2.timestamp) : 0;
-      var staleTag = priceAge > 120 ? ' <span class="c-yellow" style="font-size:var(--text-xs)">[STALE]</span>' : '';
-      html += '<div class="ticker">' +
-        '<span class="ticker-sym">' + sym2 + '</span> <span class="c-muted" style="font-size:var(--text-xs)">' + (labels[sym2] || '') + '</span>' + staleTag + '<br>' +
-        '<span class="ticker-price ' + c.cls + '">' + d2.price.toLocaleString('en-US', { minimumFractionDigits: 2 }) + '</span>' +
-        ' <span class="' + c.cls + '" style="font-size:var(--text-xs)">' + c.arrow + ' ' + (c.chg >= 0 ? '+' : '') + c.chg.toFixed(2) + '</span><br>' +
-        '<span class="ticker-hl">H:' + d2.high.toFixed(2) + ' L:' + d2.low.toFixed(2) + '</span>' +
-        '<span id="regime-badge-' + sym2 + '" class="ticker-regime"></span></div>';
+      return out;
     }
+    html = buildTickerHTML(futures) + '<div class="ticker-divider"></div>' + buildTickerHTML(stocks);
     $('ticker-strip').innerHTML = html;
 
     // BUG-005 fix: re-apply cached regime badges after innerHTML rebuild
-    for (var k = 0; k < order.length; k++) {
-      var sym3 = order[k];
+    for (var k = 0; k < futures.length; k++) {
+      var sym3 = futures[k];
       if (regimeBadgeCache[sym3]) {
         var badge = document.getElementById('regime-badge-' + sym3);
         if (badge) badge.innerHTML = regimeBadgeCache[sym3];
@@ -458,11 +476,13 @@ async function loadPrices() {
     if (lead) document.title = 'MNQ ' + lead.price.toLocaleString('en-US', { minimumFractionDigits: 2 }) + ' \u2014 Trading Terminal';
 
     // BUG-016 fix: Append new line instead of rebuilding all innerHTML
+    // Console shows futures + top 3 stocks to keep it readable
+    var consoleSym = ['MNQ', 'MYM', 'MES', 'MBT', 'QQQ', 'SPY', 'NVDA'];
     var now = new Date().toLocaleTimeString('en-US', { hour12: false });
     var line = '<span class="c-muted">[' + now + ']</span> ';
     var hasAny = false;
-    for (var m = 0; m < order.length; m++) {
-      var sym4 = order[m];
+    for (var m = 0; m < consoleSym.length; m++) {
+      var sym4 = consoleSym[m];
       var d4 = data[sym4];
       if (!d4 || isNaN(d4.price)) { line += '<span class="c-muted">' + sym4 + ':--</span>  '; continue; }
       hasAny = true;

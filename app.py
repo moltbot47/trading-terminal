@@ -287,7 +287,7 @@ if _HAS_LATPFN:
 # ---------------------------------------------------------------------------
 # Shared state with thread locks (BUG-009 fix)
 # ---------------------------------------------------------------------------
-price_feed = PriceFeed(_cfg.INSTRUMENTS)
+price_feed = PriceFeed(_cfg.ALL_INSTRUMENTS)
 
 # Override MBT mapping: PriceFeed uses BTC-USD (spot) but we want BTC=F (futures)
 if "BTC-USD" in price_feed._ticker_to_inst:
@@ -798,6 +798,56 @@ def turbo_stats() -> Response:
         "total_pnl": round(total_pnl, 2),
         "assets": _sanitize_rows(assets),
     })
+
+
+# ---------------------------------------------------------------------------
+# API: Auto-Trade Status
+# ---------------------------------------------------------------------------
+
+
+@app.route("/api/auto-trade/status")
+def auto_trade_status() -> Response:
+    """Return Alpaca paper trading status."""
+    try:
+        from execution.alpaca_trader import AlpacaPaperTrader
+        trader = AlpacaPaperTrader()
+        return jsonify(trader.get_status())
+    except Exception as e:
+        return jsonify({"enabled": False, "error": str(e)})
+
+
+@app.route("/api/auto-trade/toggle", methods=["POST"])
+def auto_trade_toggle() -> Response:
+    """Toggle auto-trade on/off at runtime."""
+    import os
+    current = bool(os.environ.get("ALPACA_AUTO_TRADE", ""))
+    if current:
+        os.environ.pop("ALPACA_AUTO_TRADE", None)
+    else:
+        os.environ["ALPACA_AUTO_TRADE"] = "1"
+    return jsonify({"enabled": not current})
+
+
+# ---------------------------------------------------------------------------
+# API: Performance Analytics
+# ---------------------------------------------------------------------------
+
+
+@app.route("/api/performance")
+def api_performance() -> Response:
+    """Return comprehensive performance analytics."""
+    from analytics import compute_performance
+    # Gather trades from scanner hits and broker trades
+    hits = query("strategy_lab.db", """
+        SELECT h.*, s.name as strategy_name
+        FROM scanner_hits h
+        JOIN strategies s ON h.strategy_id = s.id
+        WHERE h.status IN ('won', 'lost', 'breakeven')
+        ORDER BY h.timestamp ASC
+    """)
+    broker = query("broker_reports.db", "SELECT * FROM broker_trades ORDER BY timestamp ASC")
+    result = compute_performance(hits or [], broker or [])
+    return jsonify(result)
 
 
 # ---------------------------------------------------------------------------

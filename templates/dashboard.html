@@ -15,10 +15,12 @@
 ╚═══════════════════════════════════════════════════════════════════════════╝</div>
 
 <!-- TOP-LEVEL TAB BAR -->
+<button class="hamburger" onclick="toggleMobileMenu()" aria-label="Menu">&#9776;</button>
 <div class="top-tabs">
   <span class="top-tab active" onclick="switchMainView('terminal',this)">Terminal</span>
   <span class="top-tab" onclick="switchMainView('lab',this)">Strategy Lab</span>
   <span class="top-tab" onclick="switchMainView('backtester',this)">Backtester</span>
+  <span class="top-tab" onclick="switchMainView('performance',this)">Performance</span>
 </div>
 
 <!-- ============================================================ -->
@@ -399,6 +401,57 @@
 
 </div>
 
+<!-- ============================================================ -->
+<!-- PERFORMANCE VIEW -->
+<!-- ============================================================ -->
+<div id="view-performance" class="main-view">
+  <div class="grid">
+    <div class="pane" style="grid-column:1/-1;">
+
+      <!-- KPI Row -->
+      <div class="kpi-row" id="perf-kpis">
+        <div class="kpi"><div class="kpi-val" id="perf-total-pnl">--</div><div class="kpi-label">Total P&amp;L</div></div>
+        <div class="kpi"><div class="kpi-val" id="perf-sharpe">--</div><div class="kpi-label">Sharpe Ratio</div></div>
+        <div class="kpi"><div class="kpi-val" id="perf-max-dd">--</div><div class="kpi-label">Max Drawdown</div></div>
+        <div class="kpi"><div class="kpi-val" id="perf-win-rate">--</div><div class="kpi-label">Win Rate</div></div>
+        <div class="kpi"><div class="kpi-val" id="perf-profit-factor">--</div><div class="kpi-label">Profit Factor</div></div>
+        <div class="kpi"><div class="kpi-val" id="perf-expectancy">--</div><div class="kpi-label">Expectancy</div></div>
+        <div class="kpi"><div class="kpi-val" id="perf-total-trades">--</div><div class="kpi-label">Total Trades</div></div>
+      </div>
+
+      <!-- Equity Curve Chart -->
+      <div class="panel">
+        <div class="panel-title"><span class="live-dot"></span> Equity Curve</div>
+        <div id="perf-equity-chart" style="height:300px;width:100%;"></div>
+      </div>
+
+      <!-- Auto-Trade Status -->
+      <div class="panel">
+        <div class="panel-title">Auto-Trade Status</div>
+        <div id="auto-trade-panel"><span class="c-muted">Loading...</span></div>
+      </div>
+
+      <!-- Period Breakdown -->
+      <div class="panel">
+        <div class="panel-title">P&amp;L Breakdown</div>
+        <div style="display:flex;gap:4px;margin-bottom:4px;">
+          <span class="tab active" onclick="switchPerfPeriod('daily',this)">Daily</span>
+          <span class="tab" onclick="switchPerfPeriod('weekly',this)">Weekly</span>
+          <span class="tab" onclick="switchPerfPeriod('monthly',this)">Monthly</span>
+        </div>
+        <div id="perf-period-table"><span class="c-muted">No data</span></div>
+      </div>
+
+      <!-- Per-Strategy Breakdown -->
+      <div class="panel">
+        <div class="panel-title">Strategy Breakdown</div>
+        <div id="perf-strategy-table"><span class="c-muted">No data</span></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
 <div class="statusline">
   <span class="statusline-mode"> LIVE </span>
   <span style="padding:0 8px;">trading-terminal.tui v3</span>
@@ -413,5 +466,6 @@
 <script src="{{ url_for('static', filename='js/terminal.js') }}"></script>
 <script src="{{ url_for('static', filename='js/strategy-lab.js') }}"></script>
 <script src="{{ url_for('static', filename='js/backtester.js') }}"></script>
+<script src="{{ url_for('static', filename='js/performance.js') }}"></script>
 </body>
 </html>
