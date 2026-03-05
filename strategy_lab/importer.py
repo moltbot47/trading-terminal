@@ -284,6 +284,37 @@ def _transcribe_with_whisper_cli(audio_path: str) -> str | None:
     return None
 
 
+def _parse_json_response(text: str) -> dict | None:
+    """Robustly parse JSON from Claude's response, handling common issues."""
+    # Try direct parse first
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+
+    # Extract JSON block from markdown or surrounding text
+    json_match = re.search(r"\{.*\}", text, re.DOTALL)
+    if not json_match:
+        logger.error("No JSON object found in response")
+        return None
+
+    raw = json_match.group()
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        pass
+
+    # Fix common issues: trailing commas, unescaped quotes in strings
+    cleaned = re.sub(r",\s*([}\]])", r"\1", raw)  # trailing commas
+    cleaned = cleaned.replace("\n", " ")  # collapse newlines in strings
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError as e:
+        logger.error("Failed to parse strategy JSON after cleanup: %s", e)
+        logger.debug("Raw response: %s", raw[:500])
+        return None
+
+
 def extract_strategy_from_transcript(transcript: str) -> dict | None:
     """Use Claude API to extract structured strategy rules from transcript."""
     if not _ANTHROPIC_API_KEY:
@@ -294,24 +325,17 @@ def extract_strategy_from_transcript(transcript: str) -> dict | None:
         import anthropic
         client = anthropic.Anthropic(api_key=_ANTHROPIC_API_KEY)
         message = client.messages.create(
-            model="claude-sonnet-4-5-20250514",
-            max_tokens=3000,
+            model="claude-3-haiku-20240307",
+            max_tokens=4000,
             messages=[
                 {"role": "user", "content": EXTRACTION_PROMPT + transcript[:8000]}
             ],
         )
         response_text = message.content[0].text.strip()
-
-        json_match = re.search(r"\{.*\}", response_text, re.DOTALL)
-        if json_match:
-            return json.loads(json_match.group())
-        return json.loads(response_text)
+        return _parse_json_response(response_text)
 
     except ImportError:
         logger.error("anthropic package not installed — pip install anthropic")
-        return None
-    except json.JSONDecodeError as e:
-        logger.error("Failed to parse strategy JSON: %s", e)
         return None
     except Exception as e:
         logger.error("Claude API error: %s", e)
