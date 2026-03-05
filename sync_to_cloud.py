@@ -8,6 +8,7 @@ State is tracked in ~/.trading-sync-state.json so restarts resume where they
 left off.
 """
 
+import contextlib
 import json
 import logging
 import os
@@ -15,7 +16,6 @@ import signal
 import sqlite3
 import sys
 import time
-from datetime import datetime, timezone
 from pathlib import Path
 
 import psycopg
@@ -181,10 +181,8 @@ def sync_table(
 
     except Exception:
         log.exception("Error syncing %s.%s", db_file, table)
-        try:
+        with contextlib.suppress(Exception):
             pg.rollback()
-        except Exception:
-            pass
         if sq:
             sq.close()
         return last_id
@@ -225,10 +223,8 @@ def sync_json(pg: psycopg.Connection, filename: str) -> bool:
         return True
     except Exception:
         log.exception("Error syncing JSON %s", filename)
-        try:
+        with contextlib.suppress(Exception):
             pg.rollback()
-        except Exception:
-            pass
         return False
 
 
@@ -322,10 +318,8 @@ def main() -> None:
     # Cleanup
     log.info("Shutting down. Final stats: %d rows, %d JSON upserts", total_rows_synced, total_json_synced)
     save_state(state)
-    try:
+    with contextlib.suppress(Exception):
         pg.close()
-    except Exception:
-        pass
     log.info("Done.")
 
 

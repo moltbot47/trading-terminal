@@ -8,7 +8,6 @@ import logging
 import os
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -68,13 +67,12 @@ def get_conn():
 def pg_query(sql: str, params: tuple = ()) -> list[dict]:
     """Execute SQL and return results as a list of dicts."""
     try:
-        with get_conn() as conn:
-            with conn.cursor() as cur:
-                cur.execute(sql, params)
-                if cur.description is None:
-                    return []
-                columns = [desc[0] for desc in cur.description]
-                return [dict(zip(columns, row)) for row in cur.fetchall()]
+        with get_conn() as conn, conn.cursor() as cur:
+            cur.execute(sql, params)
+            if cur.description is None:
+                return []
+            columns = [desc[0] for desc in cur.description]
+            return [dict(zip(columns, row, strict=False)) for row in cur.fetchall()]
     except Exception:
         logger.exception("pg_query failed: %s", sql[:120])
         raise
@@ -88,13 +86,12 @@ def read_json_pg(key: str) -> dict | list | None:
     """
     clean_key = key.replace(".json", "")
     try:
-        with get_conn() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    "SELECT value FROM json_state WHERE key = %s", (clean_key,)
-                )
-                row = cur.fetchone()
-                return row[0] if row else None
+        with get_conn() as conn, conn.cursor() as cur:
+            cur.execute(
+                "SELECT value FROM json_state WHERE key = %s", (clean_key,)
+            )
+            row = cur.fetchone()
+            return row[0] if row else None
     except Exception:
         logger.exception("read_json_pg failed for key=%s", clean_key)
         return None
@@ -108,16 +105,15 @@ def write_json_pg(key: str, value) -> None:
     _ensure_imports()
     clean_key = key.replace(".json", "")
     try:
-        with get_conn() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """INSERT INTO json_state (key, value, updated_at)
-                       VALUES (%s, %s, NOW())
-                       ON CONFLICT (key)
-                       DO UPDATE SET value = EXCLUDED.value,
-                                     updated_at = NOW()""",
-                    (clean_key, Jsonb(value)),
-                )
+        with get_conn() as conn, conn.cursor() as cur:
+            cur.execute(
+                """INSERT INTO json_state (key, value, updated_at)
+                   VALUES (%s, %s, NOW())
+                   ON CONFLICT (key)
+                   DO UPDATE SET value = EXCLUDED.value,
+                                 updated_at = NOW()""",
+                (clean_key, Jsonb(value)),
+            )
             conn.commit()
     except Exception:
         logger.exception("write_json_pg failed for key=%s", clean_key)
@@ -132,9 +128,8 @@ def init_schema() -> None:
 
     sql = schema_path.read_text()
     try:
-        with get_conn() as conn:
-            with conn.cursor() as cur:
-                cur.execute(sql)
+        with get_conn() as conn, conn.cursor() as cur:
+            cur.execute(sql)
             conn.commit()
         logger.info("Schema initialized successfully from %s", schema_path)
     except Exception:

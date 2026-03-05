@@ -151,7 +151,7 @@ def _transcribe_via_ytdlp_subs(url: str) -> dict | None:
     """Use yt-dlp to download subtitles only (no audio). Works on some cloud IPs."""
     with tempfile.TemporaryDirectory() as tmpdir:
         try:
-            result = subprocess.run(
+            subprocess.run(
                 [
                     "yt-dlp",
                     "--write-auto-sub", "--write-sub",
