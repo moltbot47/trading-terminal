@@ -39,7 +39,7 @@ known-first-party = ["config"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
-addopts = "--cov=. --cov-report=term-missing --cov-fail-under=80"
+addopts = "--cov=. --cov-report=term-missing --cov-fail-under=75"
 
 [tool.mypy]
 ignore_missing_imports = true

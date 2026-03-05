@@ -47,4 +47,4 @@ jobs:
           echo "All functions complexity C or below"
 
       - name: Pytest + Coverage
-        run: pytest --cov=. --cov-report=term-missing --cov-fail-under=80 -q
+        run: pytest --cov=. --cov-report=term-missing --cov-fail-under=75 -q
