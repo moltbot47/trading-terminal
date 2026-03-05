@@ -221,7 +221,7 @@ def _safe_snapshot(self: PriceFeed) -> dict[str, PriceSnapshot]:
     try:
         for yf_tick, inst in self._ticker_to_inst.items():
             try:
-                df = yf.download(yf_tick, period="1d", interval="1m", progress=False)
+                df = yf.download(yf_tick, period="5d", interval="1m", progress=False)
                 snap = _parse_snapshot_df(df, inst, now)
                 if snap:
                     self._last_snapshots[inst] = snap
