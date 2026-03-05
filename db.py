@@ -12,9 +12,9 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 # Lazy imports — psycopg only needed when DATABASE_URL is set
-psycopg = None  # type: Any
-psycopg_pool = None  # type: Any
-Jsonb = None  # type: Any
+psycopg = None
+psycopg_pool = None
+Jsonb = None
 
 
 def _ensure_imports() -> None:
