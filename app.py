@@ -341,7 +341,14 @@ def _escape_html(text: str) -> str:
 
 
 def query(db_file: str, sql: str, params: tuple = ()) -> list[dict[str, Any]]:
-    """Execute a read-only query against a SQLite database in the data directory."""
+    """Execute a read-only query. Uses Postgres if DATABASE_URL is set, else local SQLite."""
+    if _cfg.DATABASE_URL:
+        try:
+            import db as _db
+            pg_sql = sql.replace("?", "%s")
+            return _db.pg_query(pg_sql, params)
+        except Exception as e:
+            logger.warning("Postgres query failed, falling back to SQLite: %s", e)
     path = os.path.join(_cfg.DATA, db_file)
     if not os.path.exists(path):
         return []
@@ -353,7 +360,13 @@ def query(db_file: str, sql: str, params: tuple = ()) -> list[dict[str, Any]]:
 
 
 def read_json(filename: str) -> Any:
-    """Read and parse a JSON file from the data directory."""
+    """Read JSON state. Uses Postgres json_state table if DATABASE_URL is set, else file."""
+    if _cfg.DATABASE_URL:
+        try:
+            import db as _db
+            return _db.read_json_pg(filename)
+        except Exception as e:
+            logger.warning("Postgres read_json failed: %s", e)
     path = os.path.join(_cfg.DATA, filename)
     try:
         with open(path) as f:

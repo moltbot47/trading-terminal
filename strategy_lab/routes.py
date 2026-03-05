@@ -63,6 +63,8 @@ def create_strategy() -> Response:
         timeframe=data.get("timeframe", "5m"),
         instruments=data.get("instruments"),
         risk_reward_target=data.get("risk_reward_target", 2.0),
+        highlights=data.get("highlights"),
+        edge_summary=data.get("edge_summary", ""),
     )
     return jsonify({"id": sid, "status": "created"})
 
@@ -116,6 +118,10 @@ def import_youtube() -> Response:
                 timeframe=result.get("timeframe", "5m"),
                 instruments=result.get("instruments"),
                 risk_reward_target=result.get("risk_reward_target", 2.0),
+                highlights=result.get("highlights"),
+                edge_summary=result.get("edge_summary", ""),
+                transcript_segments=result.get("transcript_segments"),
+                video_duration=result.get("video_duration", 0),
             )
             _import_status = {"busy": False, "stage": "complete", "error": "", "strategy_id": sid}
         except Exception as e:
@@ -157,6 +163,8 @@ def import_transcript() -> Response:
         timeframe=result.get("timeframe", "5m"),
         instruments=result.get("instruments"),
         risk_reward_target=result.get("risk_reward_target", 2.0),
+        highlights=result.get("highlights"),
+        edge_summary=result.get("edge_summary", ""),
     )
     return jsonify({"id": sid, "status": "created", "strategy": result})
 

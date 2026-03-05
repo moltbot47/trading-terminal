@@ -2,6 +2,7 @@
 
 // ---- HELPERS ----
 var _labLoaded = false;
+var _expandedStrategyId = null;
 
 function refreshLab() {
   loadStrategies();
@@ -32,7 +33,6 @@ async function importYouTube() {
       return;
     }
     $('yt-status').innerHTML = '<span class="c-yellow">Downloading & transcribing... (this takes 1-3 min)</span>';
-    // Poll for status
     _ytPollTimer = setInterval(pollYTStatus, 3000);
   } catch (e) {
     $('yt-status').innerHTML = '<span class="c-red">Error: ' + e.message + '</span>';
@@ -133,20 +133,174 @@ async function loadStrategies() {
       var activeCls = s.active ? 'c-green' : 'c-muted';
       var activeIcon = s.active ? '\u25CF ON' : '\u25CB OFF';
       var srcIcon = s.source_type === 'youtube' ? '\u25B6' : s.source_type === 'transcript' ? '\u2630' : '\u270E';
+      var nameClick = 'onclick="viewStrategy(' + s.id + ')" style="cursor:pointer"';
       html += '<tr>' +
-        '<td class="c-cyan">' + srcIcon + ' ' + s.name + '</td>' +
+        '<td class="c-cyan" ' + nameClick + '>' + srcIcon + ' ' + s.name + '</td>' +
         '<td>' + (s.timeframe || '5m') + '</td>' +
         '<td class="c-muted" style="font-size:var(--text-xs)">' + insts + '</td>' +
         '<td class="num">' + fmtK(s.total_scans || 0) + '</td>' +
         '<td class="num c-yellow">' + (s.total_hits || 0) + '</td>' +
         '<td class="' + activeCls + '" style="cursor:pointer" onclick="toggleStrategy(' + s.id + ')">' + activeIcon + '</td>' +
-        '<td><span class="c-red" style="cursor:pointer" onclick="deleteStrategy(' + s.id + ',\'' + s.name.replace("'", "\\'") + '\')">\u2717</span></td>' +
+        '<td><span class="c-red" style="cursor:pointer" onclick="deleteStrategy(' + s.id + ',\'' + s.name.replace(/'/g, "\\'") + '\')">\u2717</span></td>' +
         '</tr>';
+      // Expanded detail row
+      if (_expandedStrategyId === s.id) {
+        html += '<tr><td colspan="7" class="strategy-detail-cell">' + renderStrategyDetail(s) + '</td></tr>';
+      }
     });
     html += '</tbody></table>';
     $('strategies-panel').innerHTML = html;
   } catch (e) {
     $('strategies-panel').innerHTML = '<span class="c-red">[ERROR] ' + e.message + '</span>';
+  }
+}
+
+// ---- STRATEGY DETAIL RENDERER ----
+function viewStrategy(id) {
+  _expandedStrategyId = (_expandedStrategyId === id) ? null : id;
+  loadStrategies();
+}
+
+function renderStrategyDetail(s) {
+  var html = '<div class="strategy-detail">';
+
+  // Header
+  html += '<div class="detail-header">';
+  html += '<span class="c-bold">' + s.name + '</span>';
+  if (s.source_url) {
+    html += ' <span class="c-muted" style="font-size:var(--text-xs)">[' + s.source_type + ']</span>';
+  }
+  if (s.video_duration) {
+    var mins = Math.floor(s.video_duration / 60);
+    html += ' <span class="c-muted" style="font-size:var(--text-xs)">(' + mins + 'min)</span>';
+  }
+  html += '</div>';
+
+  // Description + Edge
+  if (s.description) {
+    html += '<div class="detail-desc">' + s.description + '</div>';
+  }
+  var edge = s.edge_summary;
+  if (typeof edge === 'string' && edge) {
+    html += '<div class="detail-edge"><span class="c-yellow">\u26A1 Edge:</span> ' + edge + '</div>';
+  }
+
+  // Highlights
+  var highlights = s.highlights;
+  if (typeof highlights === 'string') { try { highlights = JSON.parse(highlights); } catch(e) { highlights = []; } }
+  if (Array.isArray(highlights) && highlights.length) {
+    html += '<div class="detail-section"><span class="c-cyan">KEY TAKEAWAYS</span></div>';
+    html += '<ul class="detail-list">';
+    highlights.forEach(function(h) {
+      html += '<li>\u2022 ' + h + '</li>';
+    });
+    html += '</ul>';
+  }
+
+  // Entry Rules
+  var entryRules = s.entry_rules;
+  if (typeof entryRules === 'string') { try { entryRules = JSON.parse(entryRules); } catch(e) { entryRules = []; } }
+  if (Array.isArray(entryRules) && entryRules.length) {
+    html += '<div class="detail-section"><span class="c-green">ENTRY CONDITIONS</span> <span class="c-muted">(all must be true)</span></div>';
+    html += '<div class="detail-rules">';
+    entryRules.forEach(function(r, i) {
+      var label = r.label || formatRule(r);
+      html += '<div class="detail-rule"><span class="c-green">' + (i + 1) + '.</span> ' + label + '</div>';
+    });
+    html += '</div>';
+  }
+
+  // Direction Rules
+  var dirRules = s.direction_rules;
+  if (typeof dirRules === 'string') { try { dirRules = JSON.parse(dirRules); } catch(e) { dirRules = []; } }
+  if (Array.isArray(dirRules) && dirRules.length) {
+    html += '<div class="detail-section"><span class="c-blue">DIRECTION LOGIC</span></div>';
+    html += '<div class="detail-rules">';
+    dirRules.forEach(function(r) {
+      var label = r.label || (r.direction.toUpperCase() + ' when ' + formatRule(r));
+      var cls = r.direction === 'long' ? 'c-green' : 'c-red';
+      html += '<div class="detail-rule"><span class="' + cls + '">\u2192 ' + r.direction.toUpperCase() + '</span> ' + label + '</div>';
+    });
+    html += '</div>';
+  }
+
+  // Exit Rules
+  var exitRules = s.exit_rules;
+  if (typeof exitRules === 'string') { try { exitRules = JSON.parse(exitRules); } catch(e) { exitRules = {}; } }
+  if (exitRules && (exitRules.stop_loss || exitRules.take_profit)) {
+    html += '<div class="detail-section"><span class="c-red">EXIT RULES</span></div>';
+    html += '<div class="detail-rules">';
+    if (exitRules.stop_loss) {
+      var sl = exitRules.stop_loss;
+      var slLabel = sl.label || ('Stop: ' + sl.method + (sl.multiplier ? ' ' + sl.multiplier + 'x' : '') + (sl.value ? ' ' + sl.value : ''));
+      html += '<div class="detail-rule"><span class="c-red">SL</span> ' + slLabel + '</div>';
+    }
+    if (exitRules.take_profit) {
+      var tp = exitRules.take_profit;
+      var tpLabel = tp.label || ('Target: ' + tp.method + (tp.ratio ? ' ' + tp.ratio + ':1' : '') + (tp.value ? ' ' + tp.value : ''));
+      html += '<div class="detail-rule"><span class="c-green">TP</span> ' + tpLabel + '</div>';
+    }
+    html += '</div>';
+  }
+
+  // Indicators
+  var indicators = s.indicators_config;
+  if (typeof indicators === 'string') { try { indicators = JSON.parse(indicators); } catch(e) { indicators = []; } }
+  if (Array.isArray(indicators) && indicators.length) {
+    html += '<div class="detail-section"><span class="c-magenta">INDICATORS</span></div>';
+    html += '<div class="detail-indicators">';
+    indicators.forEach(function(ind) {
+      var p = ind.params || {};
+      var label = ind.indicator;
+      if (p.period) label += '(' + p.period + ')';
+      else if (p.fast) label += '(' + p.fast + ',' + p.slow + ',' + (p.signal || 9) + ')';
+      html += '<span class="detail-indicator-badge">' + label + '</span>';
+    });
+    html += '</div>';
+  }
+
+  // Transcript (collapsible)
+  if (s.transcript && s.transcript.length > 10) {
+    html += '<div class="detail-section detail-transcript-toggle" onclick="toggleTranscript(' + s.id + ')">';
+    html += '<span class="c-muted">TRANSCRIPT</span> <span class="collapse-arrow" id="transcript-arrow-' + s.id + '">\u25B6</span>';
+    html += '</div>';
+    html += '<div class="detail-transcript" id="transcript-body-' + s.id + '" style="display:none">';
+    html += '<div class="detail-transcript-text">' + s.transcript.substring(0, 3000) + (s.transcript.length > 3000 ? '...' : '') + '</div>';
+    html += '</div>';
+  }
+
+  html += '</div>';
+  return html;
+}
+
+function formatRule(r) {
+  var ind = r.indicator || '?';
+  var params = r.params || {};
+  var cond = r.condition || '';
+  var left = ind;
+  if (params.period) left += '(' + params.period + ')';
+
+  if (r.value !== undefined) {
+    return left + ' ' + cond + ' ' + r.value;
+  }
+  if (r.reference) {
+    var ref = r.reference;
+    var right = ref.indicator || '?';
+    if (ref.params && ref.params.period) right += '(' + ref.params.period + ')';
+    return left + ' ' + cond.replace('_', ' ') + ' ' + right;
+  }
+  return left + ' ' + cond;
+}
+
+function toggleTranscript(id) {
+  var body = document.getElementById('transcript-body-' + id);
+  var arrow = document.getElementById('transcript-arrow-' + id);
+  if (body.style.display === 'none') {
+    body.style.display = 'block';
+    if (arrow) arrow.innerHTML = '\u25BC';
+  } else {
+    body.style.display = 'none';
+    if (arrow) arrow.innerHTML = '\u25B6';
   }
 }
 
@@ -158,6 +312,7 @@ async function toggleStrategy(id) {
 async function deleteStrategy(id, name) {
   if (!confirm('Delete strategy "' + name + '" and all its scanner hits?')) return;
   await fetch('/api/lab/strategies/' + id, { method: 'DELETE' });
+  _expandedStrategyId = null;
   loadStrategies();
   loadLabStats();
   loadLabAnalytics();
@@ -239,8 +394,6 @@ async function loadScannerFeed() {
     });
     html += '</tbody></table>';
     $('scanner-feed').innerHTML = html;
-
-    // Update sim tabs
     updateSimTabs(hits);
   } catch (e) {
     $('scanner-feed').innerHTML = '<span class="c-red">[ERROR] ' + e.message + '</span>';
@@ -306,7 +459,6 @@ async function loadActiveSims() {
 }
 
 // ---- PERIODIC REFRESH ----
-// Refresh lab data every 30s when the lab view is visible
 setInterval(function() {
   if (document.getElementById('view-lab').classList.contains('active')) {
     loadScannerFeed();

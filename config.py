@@ -14,6 +14,9 @@ PORT: int = int(os.environ.get("PORT", "5099"))
 HOST: str = "0.0.0.0" if os.environ.get("RAILWAY_ENVIRONMENT") else "127.0.0.1"
 DEBUG: bool = False
 
+# Database -- Postgres on Railway, SQLite locally
+DATABASE_URL: str = os.environ.get("DATABASE_URL", "")
+
 # Single authoritative yfinance mapping -- use futures contracts to match Tradovate
 YF_MAP: dict[str, str] = {
     "MNQ": "NQ=F",

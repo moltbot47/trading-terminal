@@ -1,10 +1,5 @@
 """Tests for strategy_lab module — models, indicators, scanner."""
 
-import json
-import os
-import sqlite3
-import tempfile
-
 import numpy as np
 import pandas as pd
 import pytest
@@ -106,7 +101,6 @@ class TestIndicators:
         configs = [{"indicator": "RSI", "params": {"period": 14}}]
         computed = ind.compute_indicators(df, configs)
 
-        rsi_val = float(computed["RSI_14"].iloc[-1])
         condition = {"indicator": "RSI", "params": {"period": 14}, "condition": "<", "value": 100}
         assert ind.evaluate_condition(condition, computed, df) is True
 
