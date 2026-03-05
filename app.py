@@ -25,16 +25,66 @@ if _THIS_DIR not in sys.path:
 
 # Add latpfn-trading to path for its imports (after our directory)
 _PROJ = os.path.expanduser("~/latpfn-trading")
-if _PROJ not in sys.path:
+if os.path.isdir(_PROJ) and _PROJ not in sys.path:
     sys.path.append(_PROJ)
 
 import pandas as pd
 from flask import Flask, Response, jsonify, render_template, request
-from signals.news_filter import NewsFilter
-from signals.regime import detect_regime
-from strategies.trend_follower.price_feed import PriceFeed, PriceSnapshot
 
 import config as _cfg
+
+# External latpfn-trading imports — gracefully degrade if not available (e.g., Railway deploy)
+try:
+    from signals.news_filter import NewsFilter
+    from signals.regime import detect_regime
+    from strategies.trend_follower.price_feed import PriceFeed, PriceSnapshot
+    _HAS_LATPFN = True
+except ImportError:
+    _HAS_LATPFN = False
+
+    # Standalone fallbacks so the dashboard works without latpfn-trading
+    from dataclasses import dataclass, field
+
+    @dataclass
+    class PriceSnapshot:  # type: ignore[no-redef]
+        symbol: str
+        price: float
+        high: float
+        low: float
+        volume: int
+        timestamp: float
+
+    class PriceFeed:  # type: ignore[no-redef]
+        """Minimal yfinance-only price feed."""
+
+        def __init__(self, instruments: list[str]) -> None:
+            self._instruments = instruments
+            self._ticker_to_inst: dict[str, str] = {}
+            for inst in instruments:
+                yf_sym = _cfg.YF_MAP.get(inst)
+                if yf_sym:
+                    self._ticker_to_inst[yf_sym] = inst
+            self._last_snapshots: dict[str, PriceSnapshot] = {}
+            self._snapshot_cache_time: float = 0.0
+
+        def snapshot(self) -> dict[str, PriceSnapshot]:
+            return dict(self._last_snapshots)
+
+        def full_bars(self, days: int = 5, interval: str = "5m") -> dict[str, pd.DataFrame | None]:
+            return {}
+
+    class NewsFilter:  # type: ignore[no-redef]
+        """Stub news filter that returns empty calendar."""
+
+        def __init__(self, config: dict | None = None) -> None:
+            pass
+
+        def fetch_calendar(self) -> list:
+            return []
+
+    def detect_regime(df: pd.DataFrame, instrument: str = "") -> dict:  # type: ignore[misc]
+        """Stub regime detector — returns unknown."""
+        return {"regime": "unknown", "adx": 0}
 
 
 class _JSONFormatter(logging.Formatter):
@@ -204,8 +254,10 @@ def _safe_full_bars(self: PriceFeed, days: int = 5, interval: str = "5m") -> dic
     return result
 
 
-PriceFeed.snapshot = _safe_snapshot
-PriceFeed.full_bars = _safe_full_bars
+# Only monkey-patch the real PriceFeed from latpfn-trading
+if _HAS_LATPFN:
+    PriceFeed.snapshot = _safe_snapshot
+    PriceFeed.full_bars = _safe_full_bars
 
 # ---------------------------------------------------------------------------
 # Shared state with thread locks (BUG-009 fix)
@@ -217,7 +269,12 @@ if "BTC-USD" in price_feed._ticker_to_inst:
     del price_feed._ticker_to_inst["BTC-USD"]
     price_feed._ticker_to_inst["BTC=F"] = "MBT"
 
-news_filter = NewsFilter(_cfg.NEWS_FILTER_CONFIG)
+# Attach the safe snapshot/full_bars to standalone fallback too
+if not _HAS_LATPFN:
+    price_feed.snapshot = lambda self=price_feed: _safe_snapshot(self)  # type: ignore[assignment]
+    price_feed.full_bars = lambda self=price_feed, **kw: _safe_full_bars(self, **kw)  # type: ignore[assignment]
+
+news_filter = NewsFilter(_cfg.NEWS_FILTER_CONFIG if _HAS_LATPFN else {})
 
 _cache_lock = threading.Lock()
 _regime_cache: dict[str, Any] = {}

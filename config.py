@@ -6,9 +6,9 @@ import os
 PROJ: str = os.path.expanduser("~/latpfn-trading")
 DATA: str = os.path.join(PROJ, "data")
 
-# Server
-PORT: int = 5099
-HOST: str = "127.0.0.1"
+# Server -- Railway sets PORT env var; fall back to 5099 for local dev
+PORT: int = int(os.environ.get("PORT", "5099"))
+HOST: str = "0.0.0.0" if os.environ.get("RAILWAY_ENVIRONMENT") else "127.0.0.1"
 DEBUG: bool = False
 
 # Single authoritative yfinance mapping -- use futures contracts to match Tradovate
@@ -40,8 +40,12 @@ NEWS_FILTER_CONFIG: dict = {
     "cache_ttl_seconds": 300,
 }
 
-# CORS allowed origins (localhost only)
+# CORS allowed origins
 CORS_ORIGINS: list[str] = [
     "http://localhost:5099",
     "http://127.0.0.1:5099",
 ]
+# Allow Railway domain if deployed
+_railway_url = os.environ.get("RAILWAY_PUBLIC_DOMAIN")
+if _railway_url:
+    CORS_ORIGINS.append(f"https://{_railway_url}")
