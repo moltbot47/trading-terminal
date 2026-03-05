@@ -38,6 +38,8 @@ import pandas as pd
 from flask import Flask, Response, jsonify, render_template, request
 
 import config as _cfg
+from backtest.models import init_backtest_db as _init_bt_db
+from backtest.routes import bt_bp
 from strategy_lab.models import init_db as _init_lab_db
 from strategy_lab.routes import lab_bp
 from strategy_lab.scanner import Scanner
@@ -127,6 +129,10 @@ app = Flask(__name__)
 # Strategy Lab
 _init_lab_db()
 app.register_blueprint(lab_bp)
+
+# Backtester
+_init_bt_db()
+app.register_blueprint(bt_bp)
 
 # ---------------------------------------------------------------------------
 # Security: CSP + CORS headers

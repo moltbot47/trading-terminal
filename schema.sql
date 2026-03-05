@@ -203,6 +203,63 @@ CREATE INDEX IF NOT EXISTS idx_hits_status ON scanner_hits(status);
 CREATE INDEX IF NOT EXISTS idx_hits_instrument ON scanner_hits(instrument, timestamp);
 
 -- ============================================================
+-- backtester
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS backtest_bars (
+    id              SERIAL PRIMARY KEY,
+    symbol          TEXT NOT NULL,
+    timeframe       TEXT NOT NULL DEFAULT '5Min',
+    timestamp       TEXT NOT NULL,
+    open            REAL NOT NULL,
+    high            REAL NOT NULL,
+    low             REAL NOT NULL,
+    close           REAL NOT NULL,
+    volume          BIGINT DEFAULT 0,
+    UNIQUE(symbol, timeframe, timestamp)
+);
+CREATE INDEX IF NOT EXISTS idx_bt_bars_sym ON backtest_bars(symbol, timeframe, timestamp);
+
+CREATE TABLE IF NOT EXISTS backtest_runs (
+    id                  SERIAL PRIMARY KEY,
+    strategy_id         INTEGER REFERENCES strategies(id),
+    symbol              TEXT NOT NULL,
+    timeframe           TEXT NOT NULL DEFAULT '5Min',
+    start_date          TEXT NOT NULL,
+    end_date            TEXT NOT NULL,
+    status              TEXT DEFAULT 'running',
+    total_trades        INTEGER DEFAULT 0,
+    wins                INTEGER DEFAULT 0,
+    losses              INTEGER DEFAULT 0,
+    win_rate            REAL,
+    total_pnl           REAL DEFAULT 0,
+    max_drawdown        REAL DEFAULT 0,
+    profit_factor       REAL DEFAULT 0,
+    avg_trades_per_day  REAL DEFAULT 0,
+    equity_curve        TEXT DEFAULT '[]',
+    created_at          TIMESTAMPTZ DEFAULT NOW(),
+    completed_at        TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS backtest_trades (
+    id              SERIAL PRIMARY KEY,
+    run_id          INTEGER REFERENCES backtest_runs(id) ON DELETE CASCADE,
+    entry_time      TEXT NOT NULL,
+    exit_time       TEXT,
+    direction       TEXT NOT NULL,
+    entry_price     REAL NOT NULL,
+    exit_price      REAL,
+    stop_loss       REAL,
+    take_profit     REAL,
+    pnl_points      REAL DEFAULT 0,
+    exit_reason     TEXT,
+    mae_points      REAL DEFAULT 0,
+    mfe_points      REAL DEFAULT 0,
+    bars_held       INTEGER DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_bt_trades_run ON backtest_trades(run_id);
+
+-- ============================================================
 -- JSON state store (positions, heartbeat, etc.)
 -- ============================================================
 

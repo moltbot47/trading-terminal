@@ -14,6 +14,7 @@ function switchMainView(view, el) {
   el.classList.add('active');
   // Trigger lab data load when switching to lab
   if (view === 'lab' && typeof refreshLab === 'function') refreshLab();
+  if (view === 'backtester' && typeof refreshBacktester === 'function') refreshBacktester();
 }
 
 function adxBar(val) {

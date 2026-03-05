@@ -18,6 +18,7 @@
 <div class="top-tabs">
   <span class="top-tab active" onclick="switchMainView('terminal',this)">Terminal</span>
   <span class="top-tab" onclick="switchMainView('lab',this)">Strategy Lab</span>
+  <span class="top-tab" onclick="switchMainView('backtester',this)">Backtester</span>
 </div>
 
 <!-- ============================================================ -->
@@ -249,6 +250,86 @@
 </div>
 </div>
 
+<!-- ============================================================ -->
+<!-- BACKTESTER VIEW -->
+<!-- ============================================================ -->
+<div id="view-backtester" class="main-view">
+
+<div class="grid">
+
+<!-- LEFT COLUMN: Controls + History -->
+<div class="pane pane-border-r">
+
+  <!-- BACKTEST CONTROLS -->
+  <div class="panel">
+    <div class="panel-title">Run Backtest</div>
+    <div style="display:flex;flex-direction:column;gap:6px;">
+      <div class="lab-form-row">
+        <label class="c-muted" style="min-width:60px;">Strategy</label>
+        <select id="bt-strategy" class="lab-input" style="flex:1;"></select>
+      </div>
+      <div class="lab-form-row">
+        <label class="c-muted" style="min-width:60px;">Symbol</label>
+        <select id="bt-symbol" class="lab-input" style="flex:1;">
+          <option value="MNQ">MNQ (Micro Nasdaq)</option>
+          <option value="MYM">MYM (Micro Dow)</option>
+          <option value="MES">MES (Micro S&P)</option>
+          <option value="MBT">MBT (Micro Bitcoin)</option>
+          <option value="MGC">MGC (Micro Gold)</option>
+        </select>
+      </div>
+      <div class="lab-form-row">
+        <label class="c-muted" style="min-width:60px;">Start</label>
+        <input type="date" id="bt-start-date" class="lab-input" style="flex:1;" />
+      </div>
+      <div class="lab-form-row">
+        <label class="c-muted" style="min-width:60px;">End</label>
+        <input type="date" id="bt-end-date" class="lab-input" style="flex:1;" />
+      </div>
+      <button id="bt-run-btn" class="lab-btn" onclick="runBacktest()">Run Backtest</button>
+      <div id="bt-status" style="font-size:var(--text-xs);"></div>
+    </div>
+  </div>
+
+  <!-- SUMMARY KPIS -->
+  <div class="panel">
+    <div class="panel-title">Summary</div>
+    <div id="bt-summary" class="kpi-row"><span class="c-muted">Run a backtest to see results</span></div>
+  </div>
+
+  <!-- TRADE FREQUENCY -->
+  <div class="panel">
+    <div class="panel-title">Trade Frequency</div>
+    <div id="bt-frequency" style="max-height:200px;overflow-y:auto;"><span class="c-muted">--</span></div>
+  </div>
+
+  <!-- RUN HISTORY -->
+  <div class="panel">
+    <div class="panel-title">Run History</div>
+    <div id="bt-history" style="max-height:250px;overflow-y:auto;"><span class="c-muted">No runs yet</span></div>
+  </div>
+
+</div>
+
+<!-- RIGHT COLUMN: Charts + Trade Log -->
+<div class="pane">
+
+  <!-- EQUITY CURVE -->
+  <div class="panel">
+    <div class="panel-title">Equity Curve</div>
+    <div id="bt-equity-chart" style="height:280px;width:100%;"><span class="c-muted">Run a backtest to see equity curve</span></div>
+  </div>
+
+  <!-- TRADE LOG -->
+  <div class="panel">
+    <div class="panel-title">Trade Log</div>
+    <div id="bt-trades" style="max-height:350px;overflow-y:auto;"><span class="c-muted">No trades</span></div>
+  </div>
+
+</div>
+</div>
+</div>
+
 </div>
 
 <div class="statusline">
@@ -263,5 +344,6 @@
 <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4/dist/lightweight-charts.standalone.production.js"></script>
 <script src="{{ url_for('static', filename='js/terminal.js') }}"></script>
 <script src="{{ url_for('static', filename='js/strategy-lab.js') }}"></script>
+<script src="{{ url_for('static', filename='js/backtester.js') }}"></script>
 </body>
 </html>
