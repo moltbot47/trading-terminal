@@ -11,7 +11,7 @@ if not os.path.isdir(DATA):
 
 # Server -- Railway sets PORT env var; fall back to 5099 for local dev
 PORT: int = int(os.environ.get("PORT", "5099"))
-HOST: str = "0.0.0.0" if os.environ.get("RAILWAY_ENVIRONMENT") else "127.0.0.1"
+HOST: str = "0.0.0.0" if os.environ.get("RAILWAY_ENVIRONMENT") else "127.0.0.1"  # nosec B104
 DEBUG: bool = False
 
 # Database -- Postgres on Railway, SQLite locally
