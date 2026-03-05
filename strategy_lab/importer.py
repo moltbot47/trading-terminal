@@ -147,27 +147,85 @@ def _transcribe_via_captions(url: str) -> dict | None:
         return None
 
 
+def _transcribe_via_ytdlp_subs(url: str) -> dict | None:
+    """Use yt-dlp to download subtitles only (no audio). Works on some cloud IPs."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        try:
+            result = subprocess.run(
+                [
+                    "yt-dlp",
+                    "--write-auto-sub", "--write-sub",
+                    "--sub-lang", "en",
+                    "--sub-format", "vtt",
+                    "--skip-download",
+                    "--no-playlist",
+                    "-o", os.path.join(tmpdir, "subs"),
+                    url,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            return None
+
+        # Find the .vtt file
+        import glob
+        vtt_files = glob.glob(os.path.join(tmpdir, "*.vtt"))
+        if not vtt_files:
+            return None
+
+        # Parse VTT
+        text_parts = []
+        seen = set()
+        with open(vtt_files[0]) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("WEBVTT") or "-->" in line or line.startswith("Kind:") or line.startswith("Language:"):
+                    continue
+                # Remove VTT tags like <c> </c> <00:01:02.345>
+                clean = re.sub(r"<[^>]+>", "", line).strip()
+                if clean and clean not in seen:
+                    seen.add(clean)
+                    text_parts.append(clean)
+
+        full_text = " ".join(text_parts)
+        if not full_text:
+            return None
+
+        logger.info("Got subtitles via yt-dlp: %d chars", len(full_text))
+        return {"text": full_text, "segments": [], "language": "en", "duration": 0}
+
+
 def transcribe_youtube(url: str) -> dict | None:
     """Transcribe a YouTube video.
 
     Strategy:
-    1. Try YouTube's built-in captions (instant, no download)
-    2. Fall back to yt-dlp + faster-whisper/whisper CLI
+    1. Try YouTube's built-in captions API (instant, no download)
+    2. Try yt-dlp subtitle download (works on some cloud IPs)
+    3. Fall back to yt-dlp audio + whisper (local only)
 
     Returns dict with 'text' and 'segments', or None on failure.
     """
     title = _get_video_title(url)
 
-    # Primary: YouTube captions (fast, no audio needed)
+    # Method 1: YouTube captions API (fast, no download)
     transcript = _transcribe_via_captions(url)
     if transcript:
         if title:
             transcript["title"] = title
         return transcript
 
-    logger.info("No captions available, falling back to audio transcription...")
+    # Method 2: yt-dlp subtitle download (no audio needed)
+    logger.info("Trying yt-dlp subtitle download...")
+    transcript = _transcribe_via_ytdlp_subs(url)
+    if transcript:
+        if title:
+            transcript["title"] = title
+        return transcript
 
-    # Fallback: download audio + whisper
+    # Method 3: yt-dlp audio + whisper (local only, needs whisper)
+    logger.info("Trying audio transcription fallback...")
     with tempfile.TemporaryDirectory() as tmpdir:
         audio_path = os.path.join(tmpdir, "audio.mp3")
 
