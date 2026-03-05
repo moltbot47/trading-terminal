@@ -101,7 +101,10 @@ def import_youtube() -> Response:
             result = importer.import_from_youtube(url)
 
             if not result or result.get("error"):
-                _import_status = {"busy": False, "stage": "failed", "error": result.get("error", "Unknown error")}
+                err = result.get("error", "Unknown error") if result else "Unknown error"
+                if "transcribe" in err.lower():
+                    err = "YouTube blocked this request (cloud IP). Try importing from your local dashboard at http://localhost:5099"
+                _import_status = {"busy": False, "stage": "failed", "error": err}
                 return
 
             _import_status = {"busy": True, "stage": "saving", "error": ""}
