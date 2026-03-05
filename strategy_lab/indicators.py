@@ -68,6 +68,82 @@ def stochastic(df: pd.DataFrame, k_period: int = 14, d_period: int = 3) -> dict[
     return {"k": k, "d": d}
 
 
+def volume_profile(df: pd.DataFrame, lookback: int = 50, num_bins: int = 20) -> dict[str, pd.Series]:
+    """Compute rolling Volume Profile levels: POC, VAH, VAL.
+
+    POC = Price of Control (highest volume price level)
+    VAH = Value Area High (upper bound of 70% volume area)
+    VAL = Value Area Low (lower bound of 70% volume area)
+
+    Uses numpy vectorized ops for speed.
+    """
+    close_arr = df["Close"].values.astype(float)
+    low_arr = df["Low"].values.astype(float)
+    high_arr = df["High"].values.astype(float)
+    vol_arr = df["Volume"].values.astype(float) if "Volume" in df.columns else np.ones(len(df))
+
+    n = len(df)
+    poc_arr = np.full(n, np.nan)
+    vah_arr = np.full(n, np.nan)
+    val_arr = np.full(n, np.nan)
+
+    for i in range(lookback, n):
+        s = i - lookback
+        w_close = close_arr[s:i]
+        w_low = low_arr[s:i]
+        w_high = high_arr[s:i]
+        w_vol = vol_arr[s:i]
+
+        price_min = w_low.min()
+        price_max = w_high.max()
+        if price_max <= price_min:
+            poc_arr[i] = vah_arr[i] = val_arr[i] = close_arr[i]
+            continue
+
+        # Use np.histogram for fast binning
+        bin_edges = np.linspace(price_min, price_max, num_bins + 1)
+        bin_indices = np.clip(
+            ((w_close - price_min) / (price_max - price_min) * (num_bins - 1)).astype(int),
+            0, num_bins - 1,
+        )
+        bin_vol = np.bincount(bin_indices, weights=w_vol, minlength=num_bins)
+
+        poc_idx = int(np.argmax(bin_vol))
+        poc_arr[i] = (bin_edges[poc_idx] + bin_edges[poc_idx + 1]) / 2
+
+        total_vol = bin_vol.sum()
+        if total_vol == 0:
+            vah_arr[i] = price_max
+            val_arr[i] = price_min
+            continue
+
+        # Expand from POC until 70% volume captured
+        va_vol = bin_vol[poc_idx]
+        lo_idx = poc_idx
+        hi_idx = poc_idx
+        target = 0.7 * total_vol
+        while va_vol < target:
+            up = bin_vol[hi_idx + 1] if hi_idx + 1 < num_bins else 0
+            dn = bin_vol[lo_idx - 1] if lo_idx - 1 >= 0 else 0
+            if up >= dn and hi_idx + 1 < num_bins:
+                hi_idx += 1
+                va_vol += bin_vol[hi_idx]
+            elif lo_idx - 1 >= 0:
+                lo_idx -= 1
+                va_vol += bin_vol[lo_idx]
+            else:
+                break
+
+        vah_arr[i] = bin_edges[hi_idx + 1]
+        val_arr[i] = bin_edges[lo_idx]
+
+    return {
+        "poc": pd.Series(poc_arr, index=df.index),
+        "vah": pd.Series(vah_arr, index=df.index),
+        "val": pd.Series(val_arr, index=df.index),
+    }
+
+
 def vwap(df: pd.DataFrame) -> pd.Series:
     typical = (df["High"] + df["Low"] + df["Close"]) / 3
     vol = df.get("Volume", pd.Series(1, index=df.index))
@@ -127,6 +203,12 @@ def compute_indicators(df: pd.DataFrame, configs: list[dict]) -> dict[str, pd.Se
             results[f"STOCH_D_{dp}"] = stoch["d"]
         elif ind == "VWAP":
             results["VWAP"] = vwap(df)
+        elif ind == "VOLUME_PROFILE":
+            lb = params.get("lookback", 50)
+            vp = volume_profile(df, lookback=lb)
+            results["VOLUME_PROFILE_POC"] = vp["poc"]
+            results["VOLUME_PROFILE_VAH"] = vp["vah"]
+            results["VOLUME_PROFILE_VAL"] = vp["val"]
 
     return results
 
@@ -148,6 +230,12 @@ def evaluate_condition(
     ind_name = condition.get("indicator", "").upper()
     params = condition.get("params", {})
     cond_op = condition.get("condition", "")
+
+    # VOLUME_PROFILE with a reference level → interpret as "price vs VP level"
+    if ind_name == "VOLUME_PROFILE" and ("value" in condition or "reference" in condition):
+        ref = condition.get("value", condition.get("reference", {}))
+        if isinstance(ref, dict) and ref.get("indicator", "").upper() == "VOLUME_PROFILE":
+            ind_name = "PRICE"
 
     # Resolve left-hand value
     if ind_name == "PRICE" or ind_name == "CLOSE":
@@ -173,6 +261,9 @@ def evaluate_condition(
             key = "MACD_HIST"
         elif ind_name == "VWAP":
             key = "VWAP"
+        elif ind_name == "VOLUME_PROFILE":
+            sub = params.get("reference", params.get("value", "POC")).upper()
+            key = f"VOLUME_PROFILE_{sub}"
 
         lhs = indicators.get(key)
         if lhs is None:
@@ -186,8 +277,8 @@ def evaluate_condition(
     if np.isnan(lhs_val):
         return False
 
-    # Static value comparison
-    if "value" in condition:
+    # Static value comparison (or dict reference disguised as "value")
+    if "value" in condition and not isinstance(condition["value"], dict):
         rhs_val = float(condition["value"])
         if cond_op == ">":
             return lhs_val > rhs_val
@@ -200,6 +291,10 @@ def evaluate_condition(
         elif cond_op == "==":
             return abs(lhs_val - rhs_val) < 1e-6
         return False
+
+    # Dict value = treat as reference
+    if "value" in condition and isinstance(condition["value"], dict):
+        condition = {**condition, "reference": condition["value"]}
 
     # Reference indicator comparison
     if "reference" in condition:
@@ -214,6 +309,9 @@ def evaluate_condition(
             ref_key = f"{ref_name}_{ref_period}"
             if ref_name == "VWAP":
                 ref_key = "VWAP"
+            elif ref_name == "VOLUME_PROFILE":
+                sub = ref_params.get("reference", ref_params.get("value", ref.get("value", "POC"))).upper()
+                ref_key = f"VOLUME_PROFILE_{sub}"
             rhs = indicators.get(ref_key)
             if rhs is None:
                 return False
