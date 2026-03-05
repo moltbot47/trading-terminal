@@ -5,6 +5,9 @@ import os
 # Project paths
 PROJ: str = os.path.expanduser("~/latpfn-trading")
 DATA: str = os.path.join(PROJ, "data")
+if not os.path.isdir(DATA):
+    DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+    os.makedirs(DATA, exist_ok=True)
 
 # Server -- Railway sets PORT env var; fall back to 5099 for local dev
 PORT: int = int(os.environ.get("PORT", "5099"))

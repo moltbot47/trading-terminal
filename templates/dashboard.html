@@ -14,6 +14,17 @@
 ║  TRADING TERMINAL v3.0  <span class="c-muted">│</span>  LaT-PFN + Regime + News + Polymarket + Apex  ║
 ╚═══════════════════════════════════════════════════════════════════════════╝</div>
 
+<!-- TOP-LEVEL TAB BAR -->
+<div class="top-tabs">
+  <span class="top-tab active" onclick="switchMainView('terminal',this)">Terminal</span>
+  <span class="top-tab" onclick="switchMainView('lab',this)">Strategy Lab</span>
+</div>
+
+<!-- ============================================================ -->
+<!-- TERMINAL VIEW (existing dashboard) -->
+<!-- ============================================================ -->
+<div id="view-terminal" class="main-view active">
+
 <!-- LIVE PRICE TICKER STRIP -->
 <div class="ticker-strip" id="ticker-strip">
   <div class="ticker"><span class="c-muted">Loading prices...</span></div>
@@ -115,6 +126,131 @@
 </div>
 </div>
 
+<!-- ============================================================ -->
+<!-- STRATEGY LAB VIEW -->
+<!-- ============================================================ -->
+<div id="view-lab" class="main-view">
+
+<div class="grid">
+
+<!-- LEFT COLUMN: Import + Strategies -->
+<div class="pane pane-border-r">
+
+  <!-- IMPORT PANEL -->
+  <div class="panel">
+    <div class="panel-title">Import Strategy</div>
+    <div class="lab-import-panel">
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('import-tab',this,'import-youtube')">YouTube URL</div>
+        <div class="tab" onclick="switchTab('import-tab',this,'import-transcript')">Paste Transcript</div>
+        <div class="tab" onclick="switchTab('import-tab',this,'import-manual')">Manual Entry</div>
+      </div>
+
+      <!-- YouTube Import -->
+      <div id="import-youtube" class="tab-content import-tab active">
+        <div class="lab-form-row">
+          <input type="text" id="yt-url" class="lab-input" placeholder="https://youtube.com/watch?v=..." />
+          <button class="lab-btn" onclick="importYouTube()">Import</button>
+        </div>
+        <div id="yt-status" class="c-muted" style="font-size:var(--text-xs);margin-top:4px;"></div>
+      </div>
+
+      <!-- Transcript Import -->
+      <div id="import-transcript" class="tab-content import-tab">
+        <textarea id="transcript-input" class="lab-textarea" rows="5" placeholder="Paste video transcript here..."></textarea>
+        <div class="lab-form-row" style="margin-top:4px;">
+          <input type="text" id="transcript-url" class="lab-input" placeholder="Source URL (optional)" />
+          <button class="lab-btn" onclick="importTranscript()">Extract Strategy</button>
+        </div>
+        <div id="transcript-status" class="c-muted" style="font-size:var(--text-xs);margin-top:4px;"></div>
+      </div>
+
+      <!-- Manual Entry -->
+      <div id="import-manual" class="tab-content import-tab">
+        <textarea id="manual-json" class="lab-textarea" rows="8" placeholder='{
+  "name": "EMA Crossover + RSI Filter",
+  "timeframe": "5m",
+  "instruments": ["MNQ", "MYM"],
+  "entry_rules": [
+    {"indicator": "EMA", "params": {"period": 9}, "condition": "crosses_above", "reference": {"indicator": "EMA", "params": {"period": 21}}},
+    {"indicator": "RSI", "params": {"period": 14}, "condition": "<", "value": 70}
+  ],
+  "direction_rules": [
+    {"indicator": "price", "condition": ">", "reference": {"indicator": "EMA", "params": {"period": 200}}, "direction": "long"},
+    {"indicator": "price", "condition": "<", "reference": {"indicator": "EMA", "params": {"period": 200}}, "direction": "short"}
+  ],
+  "exit_rules": {
+    "stop_loss": {"method": "atr_multiple", "multiplier": 1.5, "period": 14},
+    "take_profit": {"method": "risk_reward", "ratio": 2.0}
+  },
+  "indicators_config": [
+    {"indicator": "EMA", "params": {"period": 9}},
+    {"indicator": "EMA", "params": {"period": 21}},
+    {"indicator": "EMA", "params": {"period": 200}},
+    {"indicator": "RSI", "params": {"period": 14}},
+    {"indicator": "ATR", "params": {"period": 14}}
+  ]
+}'></textarea>
+        <button class="lab-btn" style="margin-top:4px;" onclick="importManual()">Create Strategy</button>
+        <div id="manual-status" class="c-muted" style="font-size:var(--text-xs);margin-top:4px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACTIVE STRATEGIES -->
+  <div class="panel">
+    <div class="panel-title"><span class="live-dot"></span> Strategies</div>
+    <div id="strategies-panel" style="max-height:300px;overflow-y:auto;"><div class="c-muted">Loading...</div></div>
+  </div>
+
+  <!-- AGGREGATE STATS -->
+  <div class="panel">
+    <div class="panel-title">Lab Scorecard</div>
+    <div id="lab-stats" class="kpi-row"><div class="c-muted">Loading...</div></div>
+  </div>
+
+  <!-- PER-STRATEGY ANALYTICS -->
+  <div class="panel">
+    <div class="panel-title">Strategy Analytics</div>
+    <div id="lab-analytics" style="max-height:250px;overflow-y:auto;"><div class="c-muted">Loading...</div></div>
+  </div>
+
+</div>
+
+<!-- RIGHT COLUMN: Scanner Feed + Simulated Trades -->
+<div class="pane">
+
+  <!-- SCANNER LIVE FEED -->
+  <div class="panel">
+    <div class="panel-title"><span class="live-dot"></span> Scanner Feed</div>
+    <div id="scanner-feed" style="max-height:300px;overflow-y:auto;"><div class="c-muted">Waiting for scanner...</div></div>
+  </div>
+
+  <!-- ACTIVE SIMULATED TRADES -->
+  <div class="panel">
+    <div class="panel-title"><span class="live-dot"></span> Active Simulations</div>
+    <div id="active-sims" style="max-height:250px;overflow-y:auto;"><div class="c-muted">No active simulations</div></div>
+  </div>
+
+  <!-- CLOSED SIMULATED TRADES -->
+  <div class="panel">
+    <div class="panel-title">Closed Simulations</div>
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('sim-tab',this,'sim-all')">All</div>
+      <div class="tab" onclick="switchTab('sim-tab',this,'sim-won')">Winners</div>
+      <div class="tab" onclick="switchTab('sim-tab',this,'sim-lost')">Losers</div>
+    </div>
+    <div id="sim-all" class="tab-content sim-tab active" style="max-height:250px;overflow-y:auto;"></div>
+    <div id="sim-won" class="tab-content sim-tab" style="max-height:250px;overflow-y:auto;"></div>
+    <div id="sim-lost" class="tab-content sim-tab" style="max-height:250px;overflow-y:auto;"></div>
+  </div>
+
+</div>
+</div>
+</div>
+
+</div>
+
 <div class="statusline">
   <span class="statusline-mode"> LIVE </span>
   <span style="padding:0 8px;">trading-terminal.tui v3</span>
@@ -126,5 +262,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4/dist/lightweight-charts.standalone.production.js"></script>
 <script src="{{ url_for('static', filename='js/terminal.js') }}"></script>
+<script src="{{ url_for('static', filename='js/strategy-lab.js') }}"></script>
 </body>
 </html>
