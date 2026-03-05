@@ -85,16 +85,92 @@ TRANSCRIPT:
 """
 
 
-def transcribe_youtube(url: str) -> dict | None:
-    """Download audio from YouTube URL and transcribe with faster-whisper.
+def _extract_video_id(url: str) -> str | None:
+    """Extract YouTube video ID from various URL formats."""
+    patterns = [
+        r"(?:v=|/v/)([a-zA-Z0-9_-]{11})",
+        r"youtu\.be/([a-zA-Z0-9_-]{11})",
+        r"shorts/([a-zA-Z0-9_-]{11})",
+    ]
+    for pat in patterns:
+        m = re.search(pat, url)
+        if m:
+            return m.group(1)
+    return None
 
-    Returns dict with 'text' (full transcript) and 'segments' (timestamped),
-    or None on failure.
+
+def _transcribe_via_captions(url: str) -> dict | None:
+    """Grab YouTube's built-in captions (fastest, no audio download needed)."""
+    try:
+        from youtube_transcript_api import YouTubeTranscriptApi
+    except ImportError:
+        logger.warning("youtube-transcript-api not installed")
+        return None
+
+    video_id = _extract_video_id(url)
+    if not video_id:
+        logger.warning("Could not extract video ID from URL: %s", url)
+        return None
+
+    try:
+        ytt = YouTubeTranscriptApi()
+        entries = ytt.fetch(video_id, languages=["en"])
+
+        segments = []
+        text_parts = []
+        for entry in entries:
+            seg_text = str(getattr(entry, "text", "")).strip()
+            start = float(getattr(entry, "start", 0))
+            duration = float(getattr(entry, "duration", 0))
+            if seg_text:
+                segments.append({
+                    "start": round(start, 1),
+                    "end": round(start + duration, 1),
+                    "text": seg_text,
+                })
+                text_parts.append(seg_text)
+
+        full_text = " ".join(text_parts)
+        if not full_text:
+            return None
+
+        duration = segments[-1]["end"] if segments else 0
+        logger.info("Got YouTube captions: %d chars, %d segments", len(full_text), len(segments))
+        return {
+            "text": full_text,
+            "segments": segments,
+            "language": "en",
+            "duration": round(duration, 1),
+        }
+    except Exception as e:
+        logger.warning("YouTube captions not available: %s", e)
+        return None
+
+
+def transcribe_youtube(url: str) -> dict | None:
+    """Transcribe a YouTube video.
+
+    Strategy:
+    1. Try YouTube's built-in captions (instant, no download)
+    2. Fall back to yt-dlp + faster-whisper/whisper CLI
+
+    Returns dict with 'text' and 'segments', or None on failure.
     """
+    title = _get_video_title(url)
+
+    # Primary: YouTube captions (fast, no audio needed)
+    transcript = _transcribe_via_captions(url)
+    if transcript:
+        if title:
+            transcript["title"] = title
+        return transcript
+
+    logger.info("No captions available, falling back to audio transcription...")
+
+    # Fallback: download audio + whisper
     with tempfile.TemporaryDirectory() as tmpdir:
         audio_path = os.path.join(tmpdir, "audio.mp3")
 
-        # Download audio with yt-dlp
         try:
             result = subprocess.run(
                 [
@@ -128,10 +204,6 @@ def transcribe_youtube(url: str) -> dict | None:
                 logger.error("No audio file produced")
                 return None
 
-        # Get video title
-        title = _get_video_title(url)
-
-        # Transcribe with faster-whisper (primary) or fallback to CLI
         transcript = _transcribe_faster_whisper(audio_path)
         if transcript is None:
             text = _transcribe_with_whisper_cli(audio_path)

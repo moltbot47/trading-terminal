@@ -13,6 +13,12 @@ import sqlite3
 import sys
 import threading
 import time
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any
