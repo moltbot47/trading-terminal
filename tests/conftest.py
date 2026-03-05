@@ -43,10 +43,10 @@ def _ensure_mocks() -> None:
         mock_feed._snapshot_cache_time = 0
         mock_feed._ticker_to_inst = {}
 
-        PriceFeedClass = MagicMock(return_value=mock_feed)
-        PriceFeedClass.snapshot = MagicMock()
-        PriceFeedClass.full_bars = MagicMock()
-        pf_mod.PriceFeed = PriceFeedClass
+        price_feed_cls = MagicMock(return_value=mock_feed)
+        price_feed_cls.snapshot = MagicMock()
+        price_feed_cls.full_bars = MagicMock()
+        pf_mod.PriceFeed = price_feed_cls
         pf_mod.PriceSnapshot = MagicMock
         pf_mod.TICKER_MAP = {"MNQ": "NQ=F", "MYM": "YM=F", "MES": "ES=F", "MBT": "BTC=F"}
 
