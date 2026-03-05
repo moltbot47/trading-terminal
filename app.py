@@ -237,7 +237,11 @@ def _parse_snapshot_df(df: pd.DataFrame, inst: str, now: float) -> PriceSnapshot
 
 
 def _safe_snapshot(self: PriceFeed) -> dict[str, PriceSnapshot]:
-    """Fetch each ticker individually with caching to avoid multi-ticker bugs."""
+    """Fetch each ticker individually with caching to avoid multi-ticker bugs.
+
+    Uses yf.Ticker().history() instead of yf.download() to avoid
+    cross-ticker data contamination from yfinance's shared session cache.
+    """
     import yfinance as yf
 
     now = time.time()
@@ -246,10 +250,12 @@ def _safe_snapshot(self: PriceFeed) -> dict[str, PriceSnapshot]:
     try:
         for yf_tick, inst in self._ticker_to_inst.items():
             try:
-                df = yf.download(yf_tick, period="5d", interval="1m", progress=False)
-                snap = _parse_snapshot_df(df, inst, now)
-                if snap:
-                    self._last_snapshots[inst] = snap
+                ticker = yf.Ticker(yf_tick)
+                df = ticker.history(period="5d", interval="1m")
+                if df is not None and not df.empty:
+                    snap = _parse_snapshot_df(df, inst, now)
+                    if snap:
+                        self._last_snapshots[inst] = snap
             except Exception as exc:
                 logger.debug("Snapshot fetch failed for %s: %s", yf_tick, exc)
         self._snapshot_cache_time = now
@@ -260,13 +266,17 @@ def _safe_snapshot(self: PriceFeed) -> dict[str, PriceSnapshot]:
 
 
 def _safe_full_bars(self: PriceFeed, days: int = 5, interval: str = "5m") -> dict[str, pd.DataFrame | None]:
-    """Fetch full OHLCV bars for each ticker with error handling (BUG-010 fix)."""
+    """Fetch full OHLCV bars for each ticker with error handling (BUG-010 fix).
+
+    Uses yf.Ticker().history() to avoid cross-ticker data contamination.
+    """
     import yfinance as yf
 
     result: dict[str, pd.DataFrame | None] = {}
     for yf_tick, inst in self._ticker_to_inst.items():
         try:
-            df = yf.download(yf_tick, period=f"{days}d", interval=interval, progress=False)
+            ticker = yf.Ticker(yf_tick)
+            df = ticker.history(period=f"{days}d", interval=interval)
             if df is not None and not df.empty:
                 if isinstance(df.columns, pd.MultiIndex):
                     df.columns = df.columns.get_level_values(0)
