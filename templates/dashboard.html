@@ -77,16 +77,24 @@
 <!-- RIGHT COLUMN -->
 <div class="pane">
 
-  <!-- CANDLESTICK CHART -->
+  <!-- TRADINGVIEW CHART -->
   <div class="panel">
     <div class="panel-title"><span class="live-dot"></span> Price Chart</div>
-    <div style="display:flex;gap:4px;margin-bottom:4px;">
+    <div style="display:flex;gap:4px;margin-bottom:4px;flex-wrap:wrap;">
       <span class="tab active" onclick="switchChart('MNQ',this)">MNQ</span>
       <span class="tab" onclick="switchChart('MYM',this)">MYM</span>
       <span class="tab" onclick="switchChart('MES',this)">MES</span>
       <span class="tab" onclick="switchChart('MBT',this)">MBT</span>
+      <span style="color:#555;margin:0 2px;">|</span>
+      <span class="tab" onclick="switchChart('QQQ',this)">QQQ</span>
+      <span class="tab" onclick="switchChart('TQQQ',this)">TQQQ</span>
+      <span class="tab" onclick="switchChart('SPY',this)">SPY</span>
+      <span class="tab" onclick="switchChart('SPXL',this)">SPXL</span>
+      <span class="tab" onclick="switchChart('NVDA',this)">NVDA</span>
+      <span class="tab" onclick="switchChart('TSLA',this)">TSLA</span>
+      <span class="tab" onclick="switchChart('AMD',this)">AMD</span>
     </div>
-    <div id="chart-container" style="height:280px;width:100%;"></div>
+    <div id="chart-container" style="height:500px;width:100%;"></div>
   </div>
 
   <!-- LIVE PRICE CONSOLE -->
@@ -131,6 +139,63 @@
 <!-- STRATEGY LAB VIEW -->
 <!-- ============================================================ -->
 <div id="view-lab" class="main-view">
+
+<!-- VPE CONFIRMATION DASHBOARD -->
+<div class="panel" style="margin:4px 8px;">
+  <div class="panel-title"><span class="live-dot"></span> VPE Confirmation Dashboard</div>
+  <div class="lab-form-row" style="margin-bottom:8px;">
+    <select id="vpe-symbol" class="lab-input" style="max-width:150px;" onchange="loadVPE()">
+      <option value="MNQ">MNQ (Micro Nasdaq)</option>
+      <option value="ES">ES (E-mini S&P)</option>
+      <option value="MYM">MYM (Micro Dow)</option>
+      <option value="MGC">MGC (Micro Gold)</option>
+    </select>
+    <button class="lab-btn" onclick="loadVPE()">Refresh</button>
+    <span id="vpe-updated" class="c-muted" style="font-size:var(--text-xs);margin-left:8px;"></span>
+  </div>
+
+  <!-- Confirmation Checklist -->
+  <div class="grid-3" style="gap:8px;">
+
+    <!-- LEFT: Key Levels + VP Levels -->
+    <div>
+      <div class="vpe-section-title">KEY LEVELS</div>
+      <div id="vpe-levels" class="vpe-levels">
+        <div class="c-muted">Loading...</div>
+      </div>
+      <div class="vpe-section-title" style="margin-top:6px;">VOLUME PROFILE</div>
+      <div id="vpe-profile" class="vpe-levels">
+        <div class="c-muted">Loading...</div>
+      </div>
+    </div>
+
+    <!-- MIDDLE: Signal Candle + VP Shape -->
+    <div>
+      <div class="vpe-section-title">SIGNAL CANDLE</div>
+      <div id="vpe-signal" class="vpe-signal-box">
+        <div class="c-muted">Waiting for data...</div>
+      </div>
+      <div class="vpe-section-title" style="margin-top:6px;">VP SHAPE & BIAS</div>
+      <div id="vpe-shape" class="vpe-signal-box">
+        <div class="c-muted">Loading...</div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Confirmation Checklist -->
+    <div>
+      <div class="vpe-section-title">CONFIRMATION CHECKLIST</div>
+      <div id="vpe-checklist" class="vpe-checklist">
+        <div class="c-muted">Loading...</div>
+      </div>
+      <div id="vpe-grade" class="vpe-grade">
+        <span class="c-muted">--</span>
+      </div>
+      <div id="vpe-confluence" style="margin-top:4px;">
+      </div>
+    </div>
+
+  </div>
+</div>
 
 <div class="grid">
 
@@ -343,6 +408,7 @@
   <span style="padding:0 4px;" id="status-msg">Connecting...</span>
 </div>
 
+<script src="https://s3.tradingview.com/tv.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4/dist/lightweight-charts.standalone.production.js"></script>
 <script src="{{ url_for('static', filename='js/terminal.js') }}"></script>
 <script src="{{ url_for('static', filename='js/strategy-lab.js') }}"></script>

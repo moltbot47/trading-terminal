@@ -17,15 +17,22 @@ DEBUG: bool = False
 # Database -- Postgres on Railway, SQLite locally
 DATABASE_URL: str = os.environ.get("DATABASE_URL", "")
 
-# Single authoritative yfinance mapping -- use futures contracts to match Tradovate
+# Single authoritative yfinance mapping -- futures + stocks
 YF_MAP: dict[str, str] = {
     "MNQ": "NQ=F",
     "MYM": "YM=F",
     "MES": "ES=F",
     "MBT": "BTC=F",
+    "QQQ": "QQQ",
+    "TQQQ": "TQQQ",
+    "SPY": "SPY",
+    "SPXL": "SPXL",
+    "NVDA": "NVDA",
+    "TSLA": "TSLA",
+    "AMD": "AMD",
 }
 
-# Instruments to track
+# Instruments to track (futures only for live scanner)
 INSTRUMENTS: list[str] = ["MNQ", "MYM", "MES", "MBT"]
 
 # Cache TTLs (seconds)

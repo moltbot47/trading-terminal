@@ -329,55 +329,55 @@ setInterval(refreshFast, 5000);     // prices every 5s
 setInterval(refreshMedium, 30000);  // regime every 30s
 setInterval(refreshSlow, 60000);    // everything else every 60s
 
-// ---- CANDLESTICK CHART (TradingView Lightweight Charts) ------------------
-var tvChart = null;
-var candleSeries = null;
+// ---- TRADINGVIEW ADVANCED CHART WIDGET ------------------------------------
+var tvWidget = null;
 var currentChartSymbol = 'MNQ';
-var chartGeneration = 0;  // BUG-003 fix: discard stale fetch responses
-var lastCandleData = {};  // BUG-015 fix: track last candle data per symbol for update()
+
+// TradingView symbol mapping
+var TV_SYMBOL_MAP = {
+  'MNQ': 'CME_MINI:NQ1!',
+  'MYM': 'CME_MINI:YM1!',
+  'MES': 'CME_MINI:ES1!',
+  'MBT': 'CME:BTC1!',
+  'QQQ': 'NASDAQ:QQQ',
+  'TQQQ': 'NASDAQ:TQQQ',
+  'SPY': 'AMEX:SPY',
+  'SPXL': 'AMEX:SPXL',
+  'NVDA': 'NASDAQ:NVDA',
+  'TSLA': 'NASDAQ:TSLA',
+  'AMD': 'NASDAQ:AMD',
+};
 
 function initChart() {
-  var container = $('chart-container');
-  if (tvChart) { tvChart.remove(); }
-  tvChart = LightweightCharts.createChart(container, {
-    layout: { textColor: '#cccccc', background: { type: 'solid', color: '#0c0c0c' }, fontFamily: 'JetBrains Mono, monospace', fontSize: 10 },
-    grid: { vertLines: { color: '#1a1a1a' }, horzLines: { color: '#1a1a1a' } },
-    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
-    rightPriceScale: { borderColor: '#767676' },
-    timeScale: { borderColor: '#767676', timeVisible: true, secondsVisible: false },
+  var container = document.getElementById('chart-container');
+  if (!container) return;
+  container.innerHTML = '';
+  var tvSymbol = TV_SYMBOL_MAP[currentChartSymbol] || currentChartSymbol;
+  tvWidget = new TradingView.widget({
+    container_id: 'chart-container',
+    symbol: tvSymbol,
+    interval: '5',
+    timezone: 'America/Chicago',
+    theme: 'dark',
+    style: '1',
+    locale: 'en',
+    toolbar_bg: '#0c0c0c',
+    enable_publishing: false,
+    allow_symbol_change: false,
+    hide_top_toolbar: false,
+    hide_side_toolbar: false,
+    withdateranges: true,
+    details: true,
+    hotlist: false,
+    calendar: false,
+    studies: ['RSI@tv-basicstudies', 'MACD@tv-basicstudies'],
+    width: '100%',
+    height: '100%',
+    save_image: true,
+    backgroundColor: '#0c0c0c',
+    gridColor: '#1a1a1a',
+    autosize: true,
   });
-  candleSeries = tvChart.addCandlestickSeries({
-    upColor: '#16c60c', downColor: '#e74856', borderUpColor: '#16c60c', borderDownColor: '#e74856',
-    wickUpColor: '#16c60c', wickDownColor: '#e74856',
-  });
-}
-
-async function loadChart(symbol) {
-  if (!tvChart) initChart();
-  var gen = ++chartGeneration;
-  try {
-    var r = await fetch('/api/candles/' + symbol);
-    var data = await r.json();
-    if (gen !== chartGeneration) return;  // stale response -- discard
-    if (Array.isArray(data) && data.length) {
-      var prevData = lastCandleData[symbol];
-      // BUG-015 fix: if we have previous data for this symbol, try update() for last candle
-      if (prevData && prevData.length > 0 && data.length > 0) {
-        var prevLast = prevData[prevData.length - 1];
-        var newLast = data[data.length - 1];
-        // If the data up to the last candle is identical, just update the last candle
-        if (data.length === prevData.length && prevLast.time === newLast.time) {
-          candleSeries.update(newLast);
-          lastCandleData[symbol] = data;
-          return;
-        }
-      }
-      // Full refresh needed (new candles arrived or first load)
-      candleSeries.setData(data);
-      tvChart.timeScale().fitContent();
-      lastCandleData[symbol] = data;
-    }
-  } catch (e) { console.error('Chart load error:', e); }
 }
 
 function switchChart(symbol, el) {
@@ -386,16 +386,11 @@ function switchChart(symbol, el) {
     el.parentElement.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
     el.classList.add('active');
   }
-  // Clear previous data so next load does full setData for new symbol
-  lastCandleData[symbol] = null;
-  loadChart(symbol);
+  initChart();
 }
 
-// Init chart
+// Init chart on load
 initChart();
-loadChart('MNQ');
-// Refresh chart every 60s
-setInterval(function() { loadChart(currentChartSymbol); }, 60000);
 
 // ---- LIVE PRICE CONSOLE (BUG-016 fix: append only) ----------------------
 var priceLog = [];
