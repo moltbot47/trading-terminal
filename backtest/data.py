@@ -142,7 +142,7 @@ class AlpacaDataFetcher:
         time.sleep(0.5)
 
         bars = self.client.get_stock_bars(request)
-        data = bars.get(symbol, [])
+        data = bars.data.get(symbol, []) if hasattr(bars, "data") else []
 
         if not data:
             return pd.DataFrame()
