@@ -6,6 +6,16 @@ const pnlColor = v => v > 0 ? 'c-green' : v < 0 ? 'c-red' : 'c-muted';
 const fmt = v => v != null ? (v > 0 ? '+' : '') + v.toFixed(2) : '--';
 const fmtK = v => Math.abs(v) >= 1000 ? (v / 1000).toFixed(1) + 'K' : v.toFixed(0);
 
+// Top-level view switching (Terminal / Strategy Lab)
+function switchMainView(view, el) {
+  document.querySelectorAll('.main-view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.top-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('view-' + view).classList.add('active');
+  el.classList.add('active');
+  // Trigger lab data load when switching to lab
+  if (view === 'lab' && typeof refreshLab === 'function') refreshLab();
+}
+
 function adxBar(val) {
   const pct = Math.min(val / 50 * 100, 100);
   const cls = val < 20 ? 'adx-low' : val < 30 ? 'adx-mid' : 'adx-high';
@@ -49,21 +59,25 @@ async function loadRegime() {
       var sym = order[i];
       var d = data[sym];
       if (!d) { html += '<tr><td class="c-cyan">' + sym + '</td><td colspan="5" class="c-muted">No data</td></tr>'; continue; }
-      var regimeCls = d.regime === 'trending' ? 'regime-trending' : d.regime === 'volatile' ? 'regime-volatile' : 'regime-ranging';
-      var regimeIcon = d.regime === 'trending' ? '\u2197' : d.regime === 'volatile' ? '\u26A1' : '\u2194';
-      var volCls = d.realized_vol_pctile > 80 ? 'c-red' : d.realized_vol_pctile > 50 ? 'c-yellow' : 'c-green';
-      var sizeCls = d.size_multiplier >= 0.8 ? 'c-green' : d.size_multiplier >= 0.6 ? 'c-yellow' : 'c-red';
+      var regime = d.regime || 'unknown';
+      var adx = d.adx || 0;
+      var volPct = d.realized_vol_pctile != null ? d.realized_vol_pctile : 0;
+      var sizeMult = d.size_multiplier != null ? d.size_multiplier : 1;
+      var regimeCls = regime === 'trending' ? 'regime-trending' : regime === 'volatile' ? 'regime-volatile' : 'regime-ranging';
+      var regimeIcon = regime === 'trending' ? '\u2197' : regime === 'volatile' ? '\u26A1' : '\u2194';
+      var volCls = volPct > 80 ? 'c-red' : volPct > 50 ? 'c-yellow' : 'c-green';
+      var sizeCls = sizeMult >= 0.8 ? 'c-green' : sizeMult >= 0.6 ? 'c-yellow' : 'c-red';
       html += '<tr>' +
         '<td class="c-cyan c-bold">' + sym + '</td>' +
-        '<td class="' + regimeCls + '">' + regimeIcon + ' ' + d.regime.toUpperCase() + '</td>' +
-        '<td class="num">' + adxBar(d.adx) + '</td>' +
-        '<td class="num ' + volCls + '">' + d.realized_vol_pctile.toFixed(0) + '%</td>' +
+        '<td class="' + regimeCls + '">' + regimeIcon + ' ' + regime.toUpperCase() + '</td>' +
+        '<td class="num">' + adxBar(adx) + '</td>' +
+        '<td class="num ' + volCls + '">' + volPct.toFixed(0) + '%</td>' +
         '<td class="num">' + (d.vix_level != null ? d.vix_level.toFixed(1) : '--') + '</td>' +
-        '<td class="num ' + sizeCls + '">' + d.size_multiplier.toFixed(2) + 'x</td>' +
+        '<td class="num ' + sizeCls + '">' + sizeMult.toFixed(2) + 'x</td>' +
         '</tr>';
 
       // Update ticker badge + cache it (BUG-005 fix)
-      var badgeHtml = '<span class="' + regimeCls + '">' + regimeIcon + d.regime + '</span>';
+      var badgeHtml = '<span class="' + regimeCls + '">' + regimeIcon + regime + '</span>';
       regimeBadgeCache[sym] = badgeHtml;
       var badge = document.getElementById('regime-badge-' + sym);
       if (badge) badge.innerHTML = badgeHtml;

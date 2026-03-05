@@ -32,6 +32,9 @@ import pandas as pd
 from flask import Flask, Response, jsonify, render_template, request
 
 import config as _cfg
+from strategy_lab.models import init_db as _init_lab_db
+from strategy_lab.routes import lab_bp
+from strategy_lab.scanner import Scanner
 
 # External latpfn-trading imports — gracefully degrade if not available (e.g., Railway deploy)
 try:
@@ -43,7 +46,7 @@ except ImportError:
     _HAS_LATPFN = False
 
     # Standalone fallbacks so the dashboard works without latpfn-trading
-    from dataclasses import dataclass, field
+    from dataclasses import dataclass
 
     @dataclass
     class PriceSnapshot:  # type: ignore[no-redef]
@@ -83,8 +86,14 @@ except ImportError:
             return []
 
     def detect_regime(df: pd.DataFrame, instrument: str = "") -> dict:  # type: ignore[misc]
-        """Stub regime detector — returns unknown."""
-        return {"regime": "unknown", "adx": 0}
+        """Stub regime detector — returns unknown with all expected fields."""
+        return {
+            "regime": "unknown",
+            "adx": 0,
+            "realized_vol_pctile": 0,
+            "vix_level": None,
+            "size_multiplier": 1.0,
+        }
 
 
 class _JSONFormatter(logging.Formatter):
@@ -108,6 +117,10 @@ logging.basicConfig(level=logging.WARNING, handlers=[_handler])
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+
+# Strategy Lab
+_init_lab_db()
+app.register_blueprint(lab_bp)
 
 # ---------------------------------------------------------------------------
 # Security: CSP + CORS headers
@@ -134,7 +147,7 @@ def add_security_headers(response: Response) -> Response:
     origin = request.headers.get("Origin", "")
     if origin in _cfg.CORS_ORIGINS:
         response.headers["Access-Control-Allow-Origin"] = origin
-        response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, DELETE, OPTIONS"
         response.headers["Access-Control-Allow-Headers"] = "Content-Type"
     return response
 
@@ -281,6 +294,35 @@ _regime_cache: dict[str, Any] = {}
 _regime_cache_time: float = 0.0
 _bars_cache: dict[str, pd.DataFrame | None] = {}
 _bars_cache_time: float = 0.0
+
+
+def _get_bars_for_scanner() -> dict[str, pd.DataFrame | None]:
+    """Provide cached bars to the strategy scanner."""
+    with _cache_lock:
+        if _bars_cache:
+            return dict(_bars_cache)
+    # If no cached bars yet, fetch fresh
+    try:
+        return price_feed.full_bars(days=5, interval="5m")
+    except Exception:
+        return {}
+
+
+def _get_snapshots_for_scanner() -> dict:
+    """Provide current snapshots to the strategy scanner."""
+    try:
+        return price_feed.snapshot()
+    except Exception:
+        return {}
+
+
+# Start the strategy scanner background thread
+_strategy_scanner = Scanner(
+    get_bars_fn=_get_bars_for_scanner,
+    get_snapshot_fn=_get_snapshots_for_scanner,
+    interval=30.0,
+)
+_strategy_scanner.start()
 
 # ---------------------------------------------------------------------------
 # Helpers
