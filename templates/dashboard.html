@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trading Terminal v3 — Live System Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/terminal.css') }}">
+</head>
+<body>
+<div class="terminal">
+
+<div class="header-banner">╔═══════════════════════════════════════════════════════════════════════════╗
+║  TRADING TERMINAL v3.0  <span class="c-muted">│</span>  LaT-PFN + Regime + News + Polymarket + Apex  ║
+╚═══════════════════════════════════════════════════════════════════════════╝</div>
+
+<!-- LIVE PRICE TICKER STRIP -->
+<div class="ticker-strip" id="ticker-strip">
+  <div class="ticker"><span class="c-muted">Loading prices...</span></div>
+</div>
+
+<div class="grid">
+
+<!-- LEFT COLUMN -->
+<div class="pane pane-border-r">
+
+  <!-- REGIME / ADX PANEL -->
+  <div class="panel">
+    <div class="panel-title"><span class="live-dot"></span> Market Regime &amp; ADX</div>
+    <div id="regime-panel"><div class="c-muted">Loading regime data...</div></div>
+  </div>
+
+  <!-- SYSTEM HEALTH -->
+  <div class="panel">
+    <div class="panel-title">System Health</div>
+    <div id="health-panel"><div class="c-muted">Loading...</div></div>
+  </div>
+
+  <!-- OPEN POSITIONS -->
+  <div class="panel">
+    <div class="panel-title">Open Positions</div>
+    <div id="positions-panel"><div class="c-muted">Loading...</div></div>
+  </div>
+
+  <!-- BROKER PERFORMANCE -->
+  <div class="panel">
+    <div class="panel-title">Apex Broker Performance</div>
+    <div id="broker-kpis" class="kpi-row"><div class="c-muted">Loading...</div></div>
+  </div>
+
+  <!-- BROKER TRADES -->
+  <div class="panel">
+    <div class="panel-title">Recent Broker Trades</div>
+    <div id="broker-trades" style="max-height:200px;overflow-y:auto;"><div class="c-muted">Loading...</div></div>
+  </div>
+
+  <!-- NEWS CALENDAR (collapsible) -->
+  <div class="panel">
+    <div class="panel-title collapsible" onclick="togglePanel(this)"><span class="live-dot"></span> Economic Calendar (Forex Factory) <span class="collapse-arrow">&#9654;</span></div>
+    <div id="news-panel" class="panel-body collapsed"><div class="c-muted">Loading news...</div></div>
+  </div>
+
+</div>
+
+<!-- RIGHT COLUMN -->
+<div class="pane">
+
+  <!-- CANDLESTICK CHART -->
+  <div class="panel">
+    <div class="panel-title"><span class="live-dot"></span> Price Chart</div>
+    <div style="display:flex;gap:4px;margin-bottom:4px;">
+      <span class="tab active" onclick="switchChart('MNQ',this)">MNQ</span>
+      <span class="tab" onclick="switchChart('MYM',this)">MYM</span>
+      <span class="tab" onclick="switchChart('MES',this)">MES</span>
+      <span class="tab" onclick="switchChart('MBT',this)">MBT</span>
+    </div>
+    <div id="chart-container" style="height:280px;width:100%;"></div>
+  </div>
+
+  <!-- LIVE PRICE CONSOLE -->
+  <div class="panel">
+    <div class="panel-title">Live Ticker (5s poll)</div>
+    <div id="price-console" style="height:100px;overflow-y:auto;font-size:var(--text-xs);"></div>
+  </div>
+
+  <!-- LAT-PFN PREDICTIONS -->
+  <div class="panel">
+    <div class="panel-title"><span class="live-dot"></span> LaT-PFN Predictions</div>
+    <div id="predictions" style="max-height:220px;overflow-y:auto;"><div class="c-muted">Loading...</div></div>
+  </div>
+
+  <!-- TURBO STRATEGY -->
+  <div class="panel">
+    <div class="panel-title"><span class="live-dot"></span> Turbo Strategy</div>
+    <div id="turbo-kpis" class="kpi-row"><div class="c-muted">Loading...</div></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Turbo Signal Feed</div>
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('turbo-tab',this,'turbo-all')">All Signals</div>
+      <div class="tab" onclick="switchTab('turbo-tab',this,'turbo-traded')">Traded Only</div>
+    </div>
+    <div id="turbo-all" class="tab-content turbo-tab active" style="max-height:180px;overflow-y:auto;"></div>
+    <div id="turbo-traded" class="tab-content turbo-tab" style="max-height:180px;overflow-y:auto;"></div>
+  </div>
+
+  <!-- POLYMARKET -->
+  <div class="panel">
+    <div class="panel-title">Polymarket Forecasts</div>
+    <div id="polymarket" style="max-height:200px;overflow-y:auto;"><div class="c-muted">Loading...</div></div>
+  </div>
+
+</div>
+</div>
+</div>
+
+<div class="statusline">
+  <span class="statusline-mode"> LIVE </span>
+  <span style="padding:0 8px;">trading-terminal.tui v3</span>
+  <span class="c-yellow" style="padding:0 4px;">&#9888; DELAYED</span>
+  <span class="c-muted" style="padding:0 4px;">yfinance ~10min lag | prices:5s | regime:60s | news:5m</span>
+  <span class="statusline-right" id="clock">--:--:--</span>
+  <span style="padding:0 4px;" id="status-msg">Connecting...</span>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4/dist/lightweight-charts.standalone.production.js"></script>
+<script src="{{ url_for('static', filename='js/terminal.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flask pandas yfinance
+          pip install pytest pytest-cov ruff mypy bandit radon
+
+      - name: Ruff lint
+        run: ruff check .
+
+      - name: Mypy type check
+        run: mypy app.py config.py --ignore-missing-imports
+
+      - name: Bandit security scan
+        run: bandit -r app.py config.py -q
+
+      - name: Radon complexity (fail on D+)
+        run: |
+          result=$(radon cc app.py config.py -n D -s)
+          if [ -n "$result" ]; then
+            echo "$result"
+            echo "FAIL: Functions with complexity D or higher found"
+            exit 1
+          fi
+          echo "All functions complexity C or below"
+
+      - name: Pytest + Coverage
+        run: pytest --cov=. --cov-report=term-missing --cov-fail-under=85 -q

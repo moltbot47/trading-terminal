@@ -1,0 +1,51 @@
+[project]
+name = "trading-terminal"
+version = "3.0.0"
+description = "Live trading terminal dashboard with LaT-PFN, regime detection, news, and broker integration"
+requires-python = ">=3.10"
+dependencies = [
+    "flask>=3.0",
+    "pandas>=2.0",
+    "yfinance>=0.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.4",
+    "mypy>=1.10",
+    "bandit>=1.7",
+    "radon>=6.0",
+    "safety>=3.0",
+]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM"]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "E402",   # module level import not at top (sys.path manipulation required)
+    "B008",   # function call in default arg (Flask patterns)
+    "SIM108", # ternary operator suggestion
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["config"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "--cov=. --cov-report=term-missing --cov-fail-under=85"
+
+[tool.mypy]
+ignore_missing_imports = true
+strict = false
+warn_return_any = true
+warn_unused_configs = true
+
+[tool.bandit]
+targets = ["app.py", "config.py"]
