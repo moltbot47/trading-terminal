@@ -149,6 +149,7 @@ def add_security_headers(response: Response) -> Response:
         "font-src 'self' https://fonts.gstatic.com; "
         "img-src 'self' data:; "
         "connect-src 'self'; "
+        "frame-src https://s.tradingview.com https://*.tradingview.com; "
         "frame-ancestors 'none';"
     )
     response.headers["X-Content-Type-Options"] = "nosniff"
