@@ -359,32 +359,30 @@ var TV_SYMBOL_MAP = {
 function initChart() {
   var container = document.getElementById('chart-container');
   if (!container) return;
-  container.innerHTML = '';
   var tvSymbol = TV_SYMBOL_MAP[currentChartSymbol] || currentChartSymbol;
-  tvWidget = new TradingView.widget({
-    container: 'chart-container',
-    symbol: tvSymbol,
-    interval: '5',
-    timezone: 'America/Chicago',
-    theme: 'dark',
-    style: '1',
-    locale: 'en',
-    toolbar_bg: '#0c0c0c',
-    enable_publishing: false,
-    allow_symbol_change: false,
-    hide_top_toolbar: false,
-    hide_side_toolbar: false,
-    withdateranges: true,
-    details: true,
-    hotlist: false,
-    calendar: false,
-    studies: ['RSI@tv-basicstudies', 'MACD@tv-basicstudies'],
-    width: '100%',
-    height: 500,
-    save_image: true,
-    backgroundColor: '#0c0c0c',
-    gridColor: '#1a1a1a',
-  });
+  var params = [
+    'symbol=' + encodeURIComponent(tvSymbol),
+    'interval=5',
+    'timezone=America%2FChicago',
+    'theme=dark',
+    'style=1',
+    'locale=en',
+    'toolbar_bg=%230c0c0c',
+    'enable_publishing=false',
+    'allow_symbol_change=false',
+    'hide_top_toolbar=false',
+    'hide_side_toolbar=false',
+    'withdateranges=true',
+    'details=true',
+    'hotlist=false',
+    'calendar=false',
+    'studies=RSI%40tv-basicstudies%1FMACD%40tv-basicstudies',
+    'save_image=true',
+    'backgroundColor=%230c0c0c',
+    'gridColor=%231a1a1a',
+  ].join('&');
+  container.innerHTML = '<iframe src="https://s.tradingview.com/widgetembed/?' + params +
+    '" style="width:100%;height:100%;border:none;" allowtransparency="true" frameborder="0"></iframe>';
 }
 
 function switchChart(symbol, el) {
