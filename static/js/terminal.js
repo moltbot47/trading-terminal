@@ -362,7 +362,7 @@ function initChart() {
   container.innerHTML = '';
   var tvSymbol = TV_SYMBOL_MAP[currentChartSymbol] || currentChartSymbol;
   tvWidget = new TradingView.widget({
-    container_id: 'chart-container',
+    container: 'chart-container',
     symbol: tvSymbol,
     interval: '5',
     timezone: 'America/Chicago',
@@ -380,11 +380,10 @@ function initChart() {
     calendar: false,
     studies: ['RSI@tv-basicstudies', 'MACD@tv-basicstudies'],
     width: '100%',
-    height: '100%',
+    height: 500,
     save_image: true,
     backgroundColor: '#0c0c0c',
     gridColor: '#1a1a1a',
-    autosize: true,
   });
 }
 
