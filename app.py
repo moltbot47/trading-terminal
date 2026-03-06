@@ -534,15 +534,25 @@ def api_candles(symbol: str) -> Response:
         if now - _candles_cache_time < _CANDLES_CACHE_TTL and symbol in _candles_cache:
             return jsonify(_candles_cache[symbol])
 
-    # Batch download all symbols at once (BUG-006 fix)
-    tickers = list(_cfg.YF_MAP.values())
-    try:
-        df = yf.download(tickers, period="5d", interval="5m", progress=False, group_by="ticker")
-    except Exception as e:
-        logger.warning("Batch candles fetch error: %s", e)
-        return jsonify([])
-
-    new_cache = _parse_batch_candles(df, tickers)
+    # Fetch each symbol individually via Ticker.history() to avoid session bugs
+    new_cache: dict[str, list] = {}
+    for sym, yf_tick in _cfg.YF_MAP.items():
+        try:
+            ticker = yf.Ticker(yf_tick)
+            df = ticker.history(period="5d", interval="5m")
+            if df is not None and not df.empty:
+                candles = []
+                for idx, row in df.iterrows():
+                    candles.append({
+                        "time": int(idx.timestamp()),
+                        "open": round(float(row["Open"]), 2),
+                        "high": round(float(row["High"]), 2),
+                        "low": round(float(row["Low"]), 2),
+                        "close": round(float(row["Close"]), 2),
+                    })
+                new_cache[sym] = candles
+        except Exception as e:
+            logger.debug("Candle fetch error for %s: %s", yf_tick, e)
 
     with _candles_lock:
         _candles_cache = new_cache
